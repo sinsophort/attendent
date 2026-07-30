@@ -2,7 +2,7 @@
 <html lang="km">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>ប្រព័ន្ធកត់ត្រាវត្តមាន</title>
   <style>
     * {
@@ -13,11 +13,20 @@
     html, body {
       width: 100%;
       height: 100%;
-      overflow: hidden;
-      background-color: #ffffff;
+      /* អនុញ្ញាតឱ្យ Scroll លើ iOS Safari បានយ៉ាងរលូន */
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      background-color: #eef2f5;
+    }
+    .iframe-container {
+      width: 100%;
+      min-height: 100vh;
+      /* បន្ថែម Padding ខាងក្រោមខ្លះ ការពារ Safari Bottom Navigation Bar បាំង */
+      padding-bottom: 60px; 
+      display: block;
     }
     iframe {
-      width: 100vw;
+      width: 100%;
       height: 100vh;
       border: none;
       outline: none;
@@ -26,7 +35,12 @@
   </style>
 </head>
 <body>
-  <!-- ជំនួស Link Google Apps Script របស់អ្នកនៅត្រង់នេះ -->
-  <iframe src="https://script.google.com/macros/s/AKfycbyPPyDL1HZHhwiwH_FM39hJY3pzs8keVEmFBlX7eA1jUOXAgtG_dioVw4QFOAQ3zuXv/exec"></iframe>
+  <div class="iframe-container">
+    <iframe 
+      src="https://script.google.com/macros/s/AKfycbyPPyDL1HZHhwiwH_FM39hJY3pzs8keVEmFBlX7eA1jUOXAgtG_dioVw4QFOAQ3zuXv/exec"
+      allow="camera *; microphone *; geolocation *;"
+      sandbox="allow-forms allow-modals allow-popups-to-escape-sandbox allow-popups allow-scripts allow-same-origin">
+    </iframe>
+  </div>
 </body>
 </html>
