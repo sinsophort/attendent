@@ -13,7 +13,6 @@
     html, body {
       width: 100%;
       height: 100%;
-      /* អនុញ្ញាតឱ្យ Scroll លើ iOS Safari បានយ៉ាងរលូន */
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       background-color: #eef2f5;
@@ -21,7 +20,6 @@
     .iframe-container {
       width: 100%;
       min-height: 100vh;
-      /* បន្ថែម Padding ខាងក្រោមខ្លះ ការពារ Safari Bottom Navigation Bar បាំង */
       padding-bottom: 60px; 
       display: block;
     }
@@ -37,9 +35,9 @@
 <body>
   <div class="iframe-container">
     <iframe 
-      src="https://script.google.com/macros/s/AKfycbwA1bLatbqA8jrtUG5zsXBNOTcK8xwijlp11-pPbtZ1l3q3JVb0XvcWkFz6DnB6zlDy/exec"
+      src="https://script.google.com/macros/s/AKfycbzhXPtGOjpMTulbOOQloEu_YK6iRs5kcqyibSFS8XT_9eEOszxMcPCSIaiLf8oJcTbv/exec"
       allow="camera *; microphone *; geolocation *;"
-      sandbox="allow-forms allow-modals allow-popups-to-escape-sandbox allow-popups allow-scripts allow-same-origin">
+      sandbox="allow-forms allow-modals allow-popups-to-escape-sandbox allow-popups allow-scripts allow-same-origin allow-top-navigation">
     </iframe>
   </div>
 </body>
