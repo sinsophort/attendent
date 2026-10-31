@@ -13,7 +13,7 @@
     html, body {
       width: 100%;
       height: 100%;
-      overflow: hidden;
+      overflow: hidden; /* ទប់កុំឱ្យមាន Scrollbar ខាងក្រៅបង្អស់ */
       background-color: #f1f5f9;
     }
     .iframe-container {
@@ -22,11 +22,12 @@
       left: 0;
       width: 100%;
       height: 100%;
-      overflow: hidden;
+      overflow-y: auto; /* អនុញ្ញាតឱ្យអូសឡើងចុះ (Scroll) បានក្នុងទូរសព្ទ */
+      -webkit-overflow-scrolling: touch; /* ឱ្យរលូននៅលើ iOS */
     }
     .iframe-container iframe {
       width: 100%;
-      /* បន្ថយមកត្រឹម -24px ដើម្បីឱ្យឃើញស៊ុមពណ៌ខ្មៅខាងលើពេញស្អាត និងបាំងផុតអក្សរ Google */
+      /* រក្សាទុកកម្រិតបាំងខាងលើតាមដែលចង់បាន (-7px) */
       margin-top: -7px;
       height: calc(100vh + 7px);
       border: none;
@@ -42,4 +43,4 @@
     </iframe>
   </div>
 </body>
-</html>​
+</html>
