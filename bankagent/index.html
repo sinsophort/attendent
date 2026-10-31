@@ -2,30 +2,9 @@
 <html lang="km">
 <head>
   <meta charset="UTF-8">
-  <meta id="dynamicViewport" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-  <title>Dash Board Report Bank GO/7 — v2.1.9</title>
-  <script>
-    // ស្គាល់ស្វ័យប្រវត្តិ៖ បើ Browser ទូរស័ព្ទចុច "Request Desktop Website" ឱ្យបើកទទឹង Desktop (1360px) តែបើបើកធម្មតាឱ្យបើកតាមទទឹងទូរស័ព្ទ
-    (function syncViewportMode() {
-      var ua = navigator.userAgent || "";
-      var isMobileUA = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
-      var isTouch = (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) || ("ontouchstart" in window);
-      var vp = document.getElementById("dynamicViewport");
-      if (vp) {
-        if (!isMobileUA && isTouch) {
-          // ពេលទូរស័ព្ទចុច Request Desktop Website
-          vp.setAttribute("content", "width=1360, user-scalable=yes");
-        } else {
-          // ពេលបើកលើទូរស័ព្ទធម្មតា (Phone View) ឬលើ Computer
-          vp.setAttribute("content", "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover");
-        }
-      }
-    })();
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Bank Record & Roster System</title>
   <style>
-    :root {
-      --app-height: 100dvh;
-    }
     * {
       margin: 0;
       padding: 0;
@@ -34,157 +13,22 @@
     html, body {
       width: 100%;
       height: 100%;
-      height: var(--app-height, 100dvh);
       overflow: hidden;
       background-color: #f1f5f9;
-      -webkit-overflow-scrolling: touch;
     }
     .iframe-container {
       position: fixed;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
       width: 100%;
       height: 100%;
-      height: var(--app-height, 100dvh);
       overflow: hidden;
     }
     .iframe-container iframe {
       width: 100%;
-      /* បន្ថយមកត្រឹម -7px ដើម្បីបាំងផុតរបារខាងលើ និងគណនាកម្ពស់តាមអេក្រង់ពិតប្រាកដ (visualViewport / 100dvh) ដើម្បីអូសដល់ក្រោមពេញ ១០០% */
+      /* បន្ថយមកត្រឹម -24px ដើម្បីឱ្យឃើញស៊ុមពណ៌ខ្មៅខាងលើពេញស្អាត និងបាំងផុតអក្សរ Google */
       margin-top: -7px;
-      height: calc(var(--app-height, 100dvh) + 7px);
-      border: none;
-      display: block;
-    }
-  </style>
-</head>
-<body>
-  <div class="iframe-container">
-    <iframe 
-      src="<!DOCTYPE html>
-<html lang="km">
-<head>
-  <meta charset="UTF-8">
-  <meta id="dynamicViewport" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-  <title>Dash Board Report Bank GO/7 — v2.1.9</title>
-  <script>
-    // ស្គាល់ស្វ័យប្រវត្តិ៖ បើ Browser ទូរស័ព្ទចុច "Request Desktop Website" ឱ្យបើកទទឹង Desktop (1360px) តែបើបើកធម្មតាឱ្យបើកតាមទទឹងទូរស័ព្ទ
-    (function syncViewportMode() {
-      var ua = navigator.userAgent || "";
-      var isMobileUA = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
-      var isTouch = (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) || ("ontouchstart" in window);
-      var vp = document.getElementById("dynamicViewport");
-      if (vp) {
-        if (!isMobileUA && isTouch) {
-          // ពេលទូរស័ព្ទចុច Request Desktop Website
-          vp.setAttribute("content", "width=1360, user-scalable=yes");
-        } else {
-          // ពេលបើកលើទូរស័ព្ទធម្មតា (Phone View) ឬលើ Computer
-          vp.setAttribute("content", "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover");
-        }
-      }
-    })();
-  </script>
-  <style>
-    :root {
-      --app-height: 100dvh;
-    }
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    html, body {
-      width: 100%;
-      height: 100%;
-      height: var(--app-height, 100dvh);
-      overflow: hidden;
-      background-color: #f1f5f9;
-      -webkit-overflow-scrolling: touch;
-    }
-    .iframe-container {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      width: 100%;
-      height: 100%;
-      height: var(--app-height, 100dvh);
-      overflow: hidden;
-    }
-    .iframe-container iframe {
-      width: 100%;
-      /* បន្ថយមកត្រឹម -7px ដើម្បីបាំងផុតរបារខាងលើ និងគណនាកម្ពស់តាមអេក្រង់ពិតប្រាកដ (visualViewport / 100dvh) ដើម្បីអូសដល់ក្រោមពេញ ១០០% */
-      margin-top: -7px;
-      height: calc(var(--app-height, 100dvh) + 7px);
-      border: none;
-      display: block;
-    }
-  </style>
-</head>
-<body>
-  <div class="iframe-container">
-    <iframe 
-      src="<!DOCTYPE html>
-<html lang="km">
-<head>
-  <meta charset="UTF-8">
-  <meta id="dynamicViewport" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-  <title>Dash Board Report Bank GO/7 — v2.1.9</title>
-  <script>
-    // ស្គាល់ស្វ័យប្រវត្តិ៖ បើ Browser ទូរស័ព្ទចុច "Request Desktop Website" ឱ្យបើកទទឹង Desktop (1360px) តែបើបើកធម្មតាឱ្យបើកតាមទទឹងទូរស័ព្ទ
-    (function syncViewportMode() {
-      var ua = navigator.userAgent || "";
-      var isMobileUA = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
-      var isTouch = (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) || ("ontouchstart" in window);
-      var vp = document.getElementById("dynamicViewport");
-      if (vp) {
-        if (!isMobileUA && isTouch) {
-          // ពេលទូរស័ព្ទចុច Request Desktop Website
-          vp.setAttribute("content", "width=1360, user-scalable=yes");
-        } else {
-          // ពេលបើកលើទូរស័ព្ទធម្មតា (Phone View) ឬលើ Computer
-          vp.setAttribute("content", "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover");
-        }
-      }
-    })();
-  </script>
-  <style>
-    :root {
-      --app-height: 100dvh;
-    }
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    html, body {
-      width: 100%;
-      height: 100%;
-      height: var(--app-height, 100dvh);
-      overflow: hidden;
-      background-color: #f1f5f9;
-      -webkit-overflow-scrolling: touch;
-    }
-    .iframe-container {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      width: 100%;
-      height: 100%;
-      height: var(--app-height, 100dvh);
-      overflow: hidden;
-    }
-    .iframe-container iframe {
-      width: 100%;
-      /* បន្ថយមកត្រឹម -7px ដើម្បីបាំងផុតរបារខាងលើ និងគណនាកម្ពស់តាមអេក្រង់ពិតប្រាកដ (visualViewport / 100dvh) ដើម្បីអូសដល់ក្រោមពេញ ១០០% */
-      margin-top: -7px;
-      height: calc(var(--app-height, 100dvh) + 7px);
+      height: calc(120vh + 7px);
       border: none;
       display: block;
     }
@@ -197,72 +41,5 @@
       allow="camera; microphone; clipboard-read; clipboard-write">
     </iframe>
   </div>
-
-  <script>
-    // គណនាកម្ពស់អេក្រង់ពិតប្រាកដលើទូរស័ព្ទ (កាត់របារ Address Bar & Bottom Bar របស់ Browser) ដើម្បីកុំឱ្យដាច់ផ្នែកខាងក្រោមពេលអូសចុះក្រោម
-    function updateRealMobileViewportHeight() {
-      var h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
-      if (h && h > 100) {
-        document.documentElement.style.setProperty("--app-height", h + "px");
-      }
-    }
-    updateRealMobileViewportHeight();
-    window.addEventListener("resize", updateRealMobileViewportHeight);
-    window.addEventListener("orientationchange", function() {
-      setTimeout(updateRealMobileViewportHeight, 150);
-    });
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", updateRealMobileViewportHeight);
-      window.visualViewport.addEventListener("scroll", updateRealMobileViewportHeight);
-    }
-  </script>
 </body>
-</html>" 
-      allow="camera; microphone; clipboard-read; clipboard-write">
-    </iframe>
-  </div>
-
-  <script>
-    // គណនាកម្ពស់អេក្រង់ពិតប្រាកដលើទូរស័ព្ទ (កាត់របារ Address Bar & Bottom Bar របស់ Browser) ដើម្បីកុំឱ្យដាច់ផ្នែកខាងក្រោមពេលអូសចុះក្រោម
-    function updateRealMobileViewportHeight() {
-      var h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
-      if (h && h > 100) {
-        document.documentElement.style.setProperty("--app-height", h + "px");
-      }
-    }
-    updateRealMobileViewportHeight();
-    window.addEventListener("resize", updateRealMobileViewportHeight);
-    window.addEventListener("orientationchange", function() {
-      setTimeout(updateRealMobileViewportHeight, 150);
-    });
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", updateRealMobileViewportHeight);
-      window.visualViewport.addEventListener("scroll", updateRealMobileViewportHeight);
-    }
-  </script>
-</body>
-</html>" 
-      allow="camera; microphone; clipboard-read; clipboard-write">
-    </iframe>
-  </div>
-
-  <script>
-    // គណនាកម្ពស់អេក្រង់ពិតប្រាកដលើទូរស័ព្ទ (កាត់របារ Address Bar & Bottom Bar របស់ Browser) ដើម្បីកុំឱ្យដាច់ផ្នែកខាងក្រោមពេលអូសចុះក្រោម
-    function updateRealMobileViewportHeight() {
-      var h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
-      if (h && h > 100) {
-        document.documentElement.style.setProperty("--app-height", h + "px");
-      }
-    }
-    updateRealMobileViewportHeight();
-    window.addEventListener("resize", updateRealMobileViewportHeight);
-    window.addEventListener("orientationchange", function() {
-      setTimeout(updateRealMobileViewportHeight, 150);
-    });
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", updateRealMobileViewportHeight);
-      window.visualViewport.addEventListener("scroll", updateRealMobileViewportHeight);
-    }
-  </script>
-</body>
-</html>
+</html>​
