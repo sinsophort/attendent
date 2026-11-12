@@ -1,14 +1,36 @@
 /* Trip Expense Manager — PWA Launcher service worker: caches only the launcher shell.
    The app itself (Google Apps Script) is always loaded live from Google. */
-var CACHE = 'trip-launcher-v3';
+var CACHE = 'trip-launcher-v4';
 var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
 });
 self.addEventListener('activate', function (e) {
   e.waitUntil(caches.keys().then(function (keys) {
-    return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+    return Promise.all(keys.filter(function (k) { return k !== CACHE && k !== 'tem-badge'; }).map(function (k) { return caches.delete(k); }));
   }).then(function () { return self.clients.claim(); }));
+});
+/* real push messages (Firebase Cloud Messaging, sent by the Apps Script server) */
+function bumpBadge() {
+  return caches.open('tem-badge').then(function (c) {
+    return c.match('n').then(function (r) { return r ? r.text() : '0'; }).then(function (t) {
+      var n = (parseInt(t, 10) || 0) + 1;
+      return c.put('n', new Response(String(n))).then(function () {
+        try { if (self.navigator && self.navigator.setAppBadge) self.navigator.setAppBadge(n); } catch (e) {}
+        return n;
+      });
+    });
+  }).catch(function () { return 0; });
+}
+self.addEventListener('push', function (e) {
+  var d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (er) { d = { data: { body: e.data ? e.data.text() : '' } }; }
+  var m = d.data || d.notification || d || {};
+  e.waitUntil(bumpBadge().then(function () {
+    return self.registration.showNotification(String(m.title || 'Trip Expense').slice(0, 120), {
+      body: String(m.body || '').slice(0, 500), icon: 'icon-192.png', badge: 'icon-192.png', tag: m.tag || ('tem-' + Date.now()), renotify: true
+    });
+  }));
 });
 /* tapping an alert opens (or focuses) the app */
 self.addEventListener('notificationclick', function (e) {

@@ -127,6 +127,41 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     n = Math.max(0, Math.min(999, Math.floor(Number(n) || 0)));
     document.title = (n ? '(' + n + ') ' : '') + BASE_TITLE;
     try { if (navigator.setAppBadge) { if (n) navigator.setAppBadge(n); else navigator.clearAppBadge(); } } catch (e) {}
+    try { if (window.caches) caches.open('tem-badge').then(function (c) { return c.put('n', new Response(String(n))); }).catch(function () {}); } catch (e) {}
+  }
+  /* ---- real push notifications (Firebase Cloud Messaging). The app sends its public Firebase web config. ---- */
+  var PUSH = { cfg: null, src: null, origin: '*', busy: false };
+  var FB_BASE = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  function loadScript(u) { return new Promise(function (ok, bad) { var sc = document.createElement('script'); sc.src = u; sc.onload = ok; sc.onerror = bad; document.head.appendChild(sc); }); }
+  function toApp(msg) { try { if (PUSH.src) PUSH.src.postMessage(msg, PUSH.origin); } catch (e) {} }
+  function pushSupported() { return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window; }
+  function pushToken() {
+    if (!PUSH.cfg || PUSH.busy || !pushSupported() || Notification.permission !== 'granted') return;
+    PUSH.busy = true;
+    (window.firebase && firebase.messaging ? Promise.resolve() : loadScript(FB_BASE + 'firebase-app-compat.js').then(function () { return loadScript(FB_BASE + 'firebase-messaging-compat.js'); }))
+      .then(function () { return navigator.serviceWorker.ready; })
+      .then(function (reg) {
+        var c = PUSH.cfg;
+        if (!firebase.apps.length) firebase.initializeApp({ apiKey: c.apiKey, authDomain: c.authDomain, projectId: c.projectId, storageBucket: c.storageBucket, messagingSenderId: c.messagingSenderId, appId: c.appId });
+        return firebase.messaging().getToken({ vapidKey: c.vapidKey, serviceWorkerRegistration: reg });
+      })
+      .then(function (tok) { PUSH.busy = false; if (tok) toApp({ type: 'tem-push-token', token: tok }); })
+      .catch(function (e) { PUSH.busy = false; toApp({ type: 'tem-push-state', state: 'error', error: String(e && e.message || e) }); });
+  }
+  function askPush() {
+    if (!pushSupported()) { toApp({ type: 'tem-push-state', state: 'unsupported' }); return; }
+    if (Notification.permission === 'granted') { pushToken(); return; }
+    if (Notification.permission === 'denied') { toApp({ type: 'tem-push-state', state: 'denied' }); return; }
+    var shown = false;
+    try {
+      Notification.requestPermission().then(function (p) {
+        if (p === 'granted') { $('ntfBar').classList.add('hidden'); pushToken(); }
+        else if (p === 'denied') toApp({ type: 'tem-push-state', state: 'denied' });
+        else if (!shown) { shown = true; $('ntfBar').classList.remove('hidden'); }
+      }).catch(function () { $('ntfBar').classList.remove('hidden'); });
+    } catch (e) { $('ntfBar').classList.remove('hidden'); }
+    /* iPhone needs a tap on the launcher itself: show the bar if no answer came */
+    setTimeout(function () { if (Notification.permission === 'default' && !shown) { shown = true; $('ntfBar').classList.remove('hidden'); } }, 1200);
   }
   function okOrigin(o) { return /^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(o) || o === 'https://script.google.com'; }
   function localNotify(title, body) {
@@ -140,12 +175,20 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (!okOrigin(e.origin) || !e.data || typeof e.data !== 'object') return;
     if (e.data.type === 'tem-badge') setBadge(e.data.count);
     if (e.data.type === 'tem-notify') localNotify(String(e.data.title || '').slice(0, 80), String(e.data.body || '').slice(0, 200));
+    if (e.data.type === 'tem-push-config' && e.data.config && typeof e.data.config === 'object') {
+      var c = e.data.config, ok = ['apiKey', 'projectId', 'messagingSenderId', 'appId', 'vapidKey'].every(function (k) { return typeof c[k] === 'string' && c[k]; });
+      if (!ok) return;
+      PUSH.cfg = c; PUSH.src = e.source; PUSH.origin = e.origin;
+      if (pushSupported() && Notification.permission === 'granted') pushToken();
+      else if (pushSupported() && Notification.permission === 'default' && standalone() && !ntfX) $('ntfBar').classList.remove('hidden');
+    }
+    if (e.data.type === 'tem-push-ask') { PUSH.src = e.source; PUSH.origin = e.origin; askPush(); }
   });
   var ntfX = false; try { ntfX = !!localStorage.getItem('tem_launcher_ntfx'); } catch (e) {}
   if ('Notification' in window && Notification.permission === 'default' && standalone() && !ntfX) setTimeout(function () { $('ntfBar').classList.remove('hidden'); }, 4000);
   $('ntfBtn').onclick = function () {
     $('ntfBar').classList.add('hidden');
-    try { Notification.requestPermission().then(function () {}); } catch (e) {}
+    try { Notification.requestPermission().then(function (p) { if (p === 'granted') pushToken(); else if (p === 'denied') toApp({ type: 'tem-push-state', state: 'denied' }); }); } catch (e) {}
   };
   /* service worker (needed for "Install app" on Android) */
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
