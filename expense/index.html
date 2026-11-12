@@ -61,6 +61,7 @@
 
 <div id="offline" class="bar hidden"><span>📶 No internet — the app will open again when you are back online</span></div>
 <div id="installBar" class="bar hidden"><span>📲 Trip Expense</span><button type="button" id="installBtn">Install app</button><button type="button" class="x" data-x="installBar" title="Close">✕</button></div>
+<div id="ntfBar" class="bar hidden"><span>🔔 Turn on alerts and the number badge on the app icon</span><button type="button" id="ntfBtn">Turn on</button><button type="button" class="x" data-x="ntfBar" title="Close">✕</button></div>
 <div id="iosBar" class="bar hidden"><span>📲 To install: tap Share ⬆️ → Add to Home Screen ➕</span><button type="button" class="x" data-x="iosBar" title="Close">✕</button></div>
 
 <script src="config.js"></script>
@@ -114,8 +115,38 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   var dismissed = false; try { dismissed = !!localStorage.getItem('tem_launcher_iosx'); } catch (e) {}
   if (ios && !standalone() && !dismissed) setTimeout(function () { $('iosBar').classList.remove('hidden'); }, 2500);
   Array.prototype.forEach.call(document.querySelectorAll('[data-x]'), function (b) {
-    b.onclick = function () { $(b.getAttribute('data-x')).classList.add('hidden'); if (b.getAttribute('data-x') === 'iosBar') { try { localStorage.setItem('tem_launcher_iosx', '1'); } catch (e) {} } };
+    b.onclick = function () {
+      var id = b.getAttribute('data-x');
+      $(id).classList.add('hidden');
+      try { if (id === 'iosBar') localStorage.setItem('tem_launcher_iosx', '1'); if (id === 'ntfBar') localStorage.setItem('tem_launcher_ntfx', '1'); } catch (e) {}
+    };
   });
+  /* ---- badge on the app icon + alerts, sent by the app inside the frame ---- */
+  var BASE_TITLE = document.title;
+  function setBadge(n) {
+    n = Math.max(0, Math.min(999, Math.floor(Number(n) || 0)));
+    document.title = (n ? '(' + n + ') ' : '') + BASE_TITLE;
+    try { if (navigator.setAppBadge) { if (n) navigator.setAppBadge(n); else navigator.clearAppBadge(); } } catch (e) {}
+  }
+  function okOrigin(o) { return /^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(o) || o === 'https://script.google.com'; }
+  function localNotify(title, body) {
+    if (!('Notification' in window) || Notification.permission !== 'granted' || document.visibilityState === 'visible') return;
+    if (!navigator.serviceWorker) return;
+    navigator.serviceWorker.ready.then(function (reg) {
+      reg.showNotification(title, { body: body, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'tem-' + Date.now() });
+    }).catch(function () {});
+  }
+  window.addEventListener('message', function (e) {
+    if (!okOrigin(e.origin) || !e.data || typeof e.data !== 'object') return;
+    if (e.data.type === 'tem-badge') setBadge(e.data.count);
+    if (e.data.type === 'tem-notify') localNotify(String(e.data.title || '').slice(0, 80), String(e.data.body || '').slice(0, 200));
+  });
+  var ntfX = false; try { ntfX = !!localStorage.getItem('tem_launcher_ntfx'); } catch (e) {}
+  if ('Notification' in window && Notification.permission === 'default' && standalone() && !ntfX) setTimeout(function () { $('ntfBar').classList.remove('hidden'); }, 4000);
+  $('ntfBtn').onclick = function () {
+    $('ntfBar').classList.add('hidden');
+    try { Notification.requestPermission().then(function () {}); } catch (e) {}
+  };
   /* service worker (needed for "Install app" on Android) */
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(function () {});
