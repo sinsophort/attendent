@@ -4,4 +4,4 @@
  *   window.TRIP_APP_URL = 'https://script.google.com/macros/s/AKfy.../exec';
  * Leave it empty and each phone will ask for the link once.
  * ============================================================ */
-window.TRIP_APP_URL = '';
+window.TRIP_APP_URL = 'https://script.google.com/macros/s/AKfycbxWi-7JELAULRHjCjqAYyLeiD9Ck4ZqzgpHzBjMBfHxWiHYeigMMHMhLz4KX7Rr1B24/exec';
