@@ -1,44 +1,127 @@
 <!DOCTYPE html>
-<html lang="km">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Attendance</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      background-color: #eef2f5;
-    }
-    .iframe-container {
-      width: 100%;
-      min-height: 100vh;
-      padding-bottom: 60px; 
-      display: block;
-    }
-    iframe {
-      width: 100%;
-      height: 100vh;
-      border: none;
-      outline: none;
-      display: block;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Trip Expense</title>
+<meta name="description" content="Manage and split group trip expenses">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1e3a8a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Trip Expense">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="favicon-32.png">
+
+<style>
+  /* Trip Expense Manager — PWA Launcher: opens the Apps Script web app full screen with a proper icon and name */
+  :root { --c1: #2563eb; --c2: #14b8a6; }
+  html, body { margin: 0; height: 100%; background: #f3f6fb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Kantumruy Pro", "Noto Sans Khmer", sans-serif; overscroll-behavior: none; }
+  #app { position: fixed; left: 0; right: 0; top: env(safe-area-inset-top, 0px); bottom: 0; width: 100%; height: calc(100% - env(safe-area-inset-top, 0px)); border: 0; background: #f3f6fb; }
+  .layer { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: linear-gradient(160deg, #1e3a8a, #0f766e); color: #fff; text-align: center; }
+  .hidden { display: none !important; }
+  .logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 16px 40px rgba(0, 0, 0, .3); }
+  .ring { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .3); border-top-color: #fff; animation: spin .9s linear infinite; margin: 22px auto 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { font-size: 20px; margin: 16px 0 4px; } p { margin: 6px 0; opacity: .92; font-size: 14px; line-height: 1.5; }
+  .box { max-width: 420px; width: 100%; }
+  .btn { display: inline-block; border: 0; border-radius: 12px; padding: 12px 18px; margin: 6px 4px 0; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; background: #fff; color: #1e3a8a; }
+  .btn.ghost { background: rgba(255, 255, 255, .15); color: #fff; }
+  input { width: 100%; box-sizing: border-box; border-radius: 12px; border: 0; padding: 13px 14px; font-size: 16px; margin-top: 12px; }
+  .err { color: #fecaca; min-height: 20px; font-size: 13px; margin-top: 6px; }
+  .small { font-size: 12px; opacity: .8; }
+  #slow { margin-top: 18px; }
+  .bar { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 6; display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 14px; color: #fff; background: rgba(15, 23, 42, .92); font-size: 13.5px; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
+  .bar span { flex: 1; } .bar button { border: 0; background: #fff; color: #1e3a8a; border-radius: 10px; padding: 8px 12px; font: inherit; font-weight: 600; cursor: pointer; }
+  .bar .x { background: transparent; color: #fff; font-size: 18px; padding: 4px 6px; }
+</style>
 </head>
 <body>
-  <div class="iframe-container">
-    <iframe 
-      src="https://script.google.com/macros/s/AKfycbw0hwKSZnL1aSOgLSmCiWBqQMNWPSr0-ZqqoqNmHIHqW6fuDIpuDU05wzUUTLoaunzB/exec"
-      allow="camera *; microphone *; geolocation *;"
-      sandbox="allow-forms allow-modals allow-popups-to-escape-sandbox allow-popups allow-scripts allow-same-origin allow-top-navigation">
-    </iframe>
+<iframe id="app" title="Trip Expense Manager" allow="geolocation *; clipboard-write *; camera *; fullscreen *" referrerpolicy="no-referrer-when-downgrade"></iframe>
+
+<div id="splash" class="layer"><div class="box">
+  <img class="logo" src="icon-192.png" alt="">
+  <h1>Trip Expense Manager</h1>
+  <div class="ring"></div><p>Opening the app…</p>
+  <div id="slow" class="hidden"><p>Is the app slow or not showing?</p>
+    <button class="btn" type="button" id="retry">⟳ Try again</button><a class="btn ghost" id="direct" href="#" target="_blank" rel="noopener">Open in browser ↗</a>
+    <p class="small" style="margin-top:12px">If it still does not show: the admin must turn on "Allow embedding in the PWA Launcher" in Settings → Phone app, then deploy a new version</p>
+    <p><a href="#" id="change" class="small" style="color:#fff">Change link</a></p>
   </div>
+</div></div>
+
+<div id="setup" class="layer hidden"><form class="box" id="setupForm" novalidate>
+  <img class="logo" src="icon-192.png" alt="">
+  <h1>Connect the app</h1><p>Paste the Web App link (it starts with https://script.google.com/macros/s/ ... /exec)</p>
+  <input id="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec">
+  <div class="err" id="err"></div>
+  <button class="btn" type="submit">Save and open</button>
+</form></div>
+
+<div id="offline" class="bar hidden"><span>📶 No internet — the app will open again when you are back online</span></div>
+<div id="installBar" class="bar hidden"><span>📲 Trip Expense</span><button type="button" id="installBtn">Install app</button><button type="button" class="x" data-x="installBar" title="Close">✕</button></div>
+<div id="iosBar" class="bar hidden"><span>📲 To install: tap Share ⬆️ → Add to Home Screen ➕</span><button type="button" class="x" data-x="iosBar" title="Close">✕</button></div>
+
+<script src="config.js"></script>
+<script>
+/* The Web App link is set in config.js (edit that small file, not this one). */
+var APP_URL = String(window.TRIP_APP_URL || '');
+
+(function () {
+  var KEY = 'tem_launcher_url';
+  var $ = function (id) { return document.getElementById(id); };
+  var frame = $('app'), splash = $('splash'), setup = $('setup');
+  var slowTimer = null;
+  function valid(u) { return /^https:\/\/script\.google\.com\/(a\/macros\/[^\/\s]+|macros)\/s\/[A-Za-z0-9_-]+\/exec\/?$/.test(String(u || '').trim()); }
+  function saved() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+  function appUrl() { return valid(APP_URL) ? APP_URL.trim() : (valid(saved()) ? saved() : ''); }
+  function standalone() { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+  function open() {
+    var u = appUrl();
+    if (!u) { splash.classList.add('hidden'); setup.classList.remove('hidden'); setTimeout(function () { $('url').focus(); }, 100); return; }
+    setup.classList.add('hidden'); splash.classList.remove('hidden'); $('slow').classList.add('hidden');
+    $('direct').href = u;
+    frame.src = u + (u.indexOf('?') < 0 ? '?' : '&') + 'app=pwa';
+    clearTimeout(slowTimer);
+    slowTimer = setTimeout(function () { $('slow').classList.remove('hidden'); }, 15000);
+  }
+  frame.addEventListener('load', function () {
+    if (!frame.src || frame.src === 'about:blank') return;
+    clearTimeout(slowTimer);
+    setTimeout(function () { splash.classList.add('hidden'); }, 600);
+  });
+  $('retry').onclick = function () { frame.src = 'about:blank'; setTimeout(open, 50); };
+  $('change').onclick = function (e) { e.preventDefault(); clearTimeout(slowTimer); splash.classList.add('hidden'); setup.classList.remove('hidden'); $('url').value = appUrl(); };
+  $('setupForm').onsubmit = function (e) {
+    e.preventDefault();
+    var u = $('url').value.trim();
+    if (!valid(u)) { $('err').textContent = 'Invalid link — it must start with https://script.google.com/ and end with /exec'; return; }
+    try { localStorage.setItem(KEY, u); } catch (er) {}
+    APP_URL = u; $('err').textContent = ''; open();
+  };
+  /* offline / online */
+  function net() { $('offline').classList.toggle('hidden', navigator.onLine !== false); }
+  window.addEventListener('online', function () { net(); if (frame.src && !splash.classList.contains('hidden')) open(); });
+  window.addEventListener('offline', net);
+  net();
+  /* install prompts */
+  var deferred = null;
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; if (!standalone()) $('installBar').classList.remove('hidden'); });
+  $('installBtn').onclick = function () { if (!deferred) return; deferred.prompt(); deferred = null; $('installBar').classList.add('hidden'); };
+  window.addEventListener('appinstalled', function () { $('installBar').classList.add('hidden'); });
+  var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var dismissed = false; try { dismissed = !!localStorage.getItem('tem_launcher_iosx'); } catch (e) {}
+  if (ios && !standalone() && !dismissed) setTimeout(function () { $('iosBar').classList.remove('hidden'); }, 2500);
+  Array.prototype.forEach.call(document.querySelectorAll('[data-x]'), function (b) {
+    b.onclick = function () { $(b.getAttribute('data-x')).classList.add('hidden'); if (b.getAttribute('data-x') === 'iosBar') { try { localStorage.setItem('tem_launcher_iosx', '1'); } catch (e) {} } };
+  });
+  /* service worker (needed for "Install app" on Android) */
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+  open();
+})();
+</script>
 </body>
 </html>
