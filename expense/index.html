@@ -43,11 +43,11 @@
 <div id="splash" class="layer"><div class="box">
   <img class="logo" src="icon-192.png" alt="">
   <h1>Trip Expense Manager</h1>
-  <div class="ring"></div><p>Opening the app…</p>
-  <div id="slow" class="hidden"><p>Is the app slow or not showing?</p>
-    <button class="btn" type="button" id="retry">⟳ Try again</button><a class="btn ghost" id="direct" href="#" target="_blank" rel="noopener">Open in browser ↗</a>
-    <p class="small" style="margin-top:12px">If it still does not show: the admin must turn on "Allow embedding in the PWA Launcher" in Settings → Phone app, then deploy a new version</p>
-    <p><a href="#" id="change" class="small" style="color:#fff">Change link</a></p>
+  <div class="ring"></div><p id="opening">Opening the app…</p>
+  <p id="patience" class="small hidden">The first start of the day can take a little longer — please wait</p>
+  <div id="slow" class="hidden"><p>The app could not be opened.</p><p class="small" id="slowWhy">Please check your internet connection.</p>
+    <button class="btn" type="button" id="retry">⟳ Try again</button>
+    <p class="small" style="margin-top:12px"><a href="#" id="direct" target="_blank" rel="noopener" style="color:#fff">Open in browser</a> · <a href="#" id="change" style="color:#fff">Change link</a></p>
   </div>
 </div></div>
 
@@ -82,10 +82,20 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     var u = appUrl();
     if (!u) { splash.classList.add('hidden'); setup.classList.remove('hidden'); setTimeout(function () { $('url').focus(); }, 100); return; }
     setup.classList.add('hidden'); splash.classList.remove('hidden'); $('slow').classList.add('hidden');
+    $('patience').classList.add('hidden'); $('opening').classList.remove('hidden');
     $('direct').href = u;
     frame.src = u + (u.indexOf('?') < 0 ? '?' : '&') + 'app=pwa';
     clearTimeout(slowTimer);
-    slowTimer = setTimeout(function () { $('slow').classList.remove('hidden'); }, 15000);
+    /* keep waiting quietly: a slow first start is normal for Google Apps Script */
+    slowTimer = setTimeout(function () {
+      $('patience').classList.remove('hidden');
+      slowTimer = setTimeout(function () {
+        $('opening').classList.add('hidden'); $('patience').classList.add('hidden');
+        $('slowWhy').textContent = navigator.onLine === false ? 'No internet connection.' :
+          'If this keeps happening, the admin should check Settings → Phone app → "Allow embedding in the PWA Launcher" and deploy a new version.';
+        $('slow').classList.remove('hidden');
+      }, 75000);
+    }, 12000);
   }
   frame.addEventListener('load', function () {
     if (!frame.src || frame.src === 'about:blank') return;
@@ -183,6 +193,13 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       else if (pushSupported() && Notification.permission === 'default' && standalone() && !ntfX) $('ntfBar').classList.remove('hidden');
     }
     if (e.data.type === 'tem-push-ask') { PUSH.src = e.source; PUSH.origin = e.origin; askPush(); }
+    /* keep the login (iPhone clears the app's storage inside the frame when the app is closed) */
+    if (e.data.type === 'tem-auth-save' && typeof e.data.token === 'string' && e.data.token.length < 400) { try { localStorage.setItem('tem_launcher_auth', e.data.token); } catch (er) {} }
+    if (e.data.type === 'tem-auth-clear') { try { localStorage.removeItem('tem_launcher_auth'); } catch (er) {} }
+    if (e.data.type === 'tem-auth-get') {
+      var tok = ''; try { tok = localStorage.getItem('tem_launcher_auth') || ''; } catch (er) {}
+      try { e.source.postMessage({ type: 'tem-auth', token: tok }, e.origin); } catch (er) {}
+    }
   });
   var ntfX = false; try { ntfX = !!localStorage.getItem('tem_launcher_ntfx'); } catch (e) {}
   if ('Notification' in window && Notification.permission === 'default' && standalone() && !ntfX) setTimeout(function () { $('ntfBar').classList.remove('hidden'); }, 4000);
@@ -190,6 +207,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     $('ntfBar').classList.add('hidden');
     try { Notification.requestPermission().then(function (p) { if (p === 'granted') pushToken(); else if (p === 'denied') toApp({ type: 'tem-push-state', state: 'denied' }); }); } catch (e) {}
   };
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
   /* service worker (needed for "Install app" on Android) */
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(function () {});
