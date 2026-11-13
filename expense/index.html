@@ -167,9 +167,19 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (mode === 'sr' && SR) {
       var rec, text = '', failed = false;
       try { rec = new SR(); } catch (e) { return micReply({ type: 'tem-mic-error', error: 'unsupported' }); }
-      rec.lang = lang === 'en' ? 'en-US' : 'km-KH'; rec.interimResults = false; rec.continuous = false;
-      rec.onresult = function (ev) { for (var i = ev.resultIndex; i < ev.results.length; i++) if (ev.results[i].isFinal) text += ev.results[i][0].transcript; };
-      rec.onerror = function (ev) { failed = true; if (!MIC.cancel) micReply({ type: 'tem-mic-error', error: ev.error || 'error' }); };
+      rec.lang = lang === 'en' ? 'en-US' : 'km-KH'; rec.interimResults = true; rec.continuous = false;
+      rec.onresult = function (ev) {
+        var interim = '';
+        for (var i = ev.resultIndex; i < ev.results.length; i++) { if (ev.results[i].isFinal) text += ev.results[i][0].transcript; else interim += ev.results[i][0].transcript; }
+        micReply({ type: 'tem-mic-partial', text: (text + ' ' + interim).trim() });
+      };
+      rec.onerror = function (ev) {
+        failed = true; if (MIC.cancel) return;
+        var er = ev.error || 'error';
+        /* recognition cannot do this language here: record instead (the app turns it into text) */
+        if (MIC.canRec && /language-not-supported|network|service-not-allowed/.test(er)) { MIC.sr = null; micStart(lang, 'rec'); return; }
+        micReply({ type: 'tem-mic-error', error: er });
+      };
       rec.onend = function () { MIC.sr = null; if (!failed && !MIC.cancel) micReply({ type: 'tem-mic-text', text: text }); };
       MIC.sr = rec;
       try { rec.start(); } catch (e) { micReply({ type: 'tem-mic-error', error: 'unsupported' }); }
@@ -237,7 +247,15 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       else if (pushSupported() && Notification.permission === 'default' && standalone() && !ntfX) $('ntfBar').classList.remove('hidden');
     }
     if (e.data.type === 'tem-push-ask') { PUSH.src = e.source; PUSH.origin = e.origin; askPush(); }
-    if (e.data.type === 'tem-mic-start') { MIC.src = e.source; MIC.origin = e.origin; micReply({ type: 'tem-mic-ack' }); micStart(String(e.data.lang || 'km'), e.data.mode === 'sr' ? 'sr' : 'rec'); }
+    if (e.data.type === 'tem-mic-start') {
+      MIC.src = e.source; MIC.origin = e.origin; micReply({ type: 'tem-mic-ack' });
+      var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var lang = String(e.data.lang || 'km'), SRok = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      /* the phone's own recognition is the fastest (Android: Khmer + English, iPhone: English); otherwise record */
+      var mode = e.data.mode === 'sr' ? 'sr' : e.data.mode === 'rec' ? 'rec' : (SRok && !(ios && lang === 'km') ? 'sr' : 'rec');
+      MIC.canRec = e.data.canRec !== false;
+      micStart(lang, mode);
+    }
     if (e.data.type === 'tem-mic-stop') micStop(false);
     if (e.data.type === 'tem-mic-cancel') micStop(true);
     /* keep the login (iPhone clears the app's storage inside the frame when the app is closed) */
