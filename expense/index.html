@@ -158,6 +158,50 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       .then(function (tok) { PUSH.busy = false; if (tok) toApp({ type: 'tem-push-token', token: tok }); })
       .catch(function (e) { PUSH.busy = false; toApp({ type: 'tem-push-state', state: 'error', error: String(e && e.message || e) }); });
   }
+  /* ---- microphone: Google's page cannot use it, so the launcher records and sends the sound to the app ---- */
+  var MIC = { src: null, origin: '*', mr: null, stream: null, sr: null, chunks: [], cancel: false, timer: null };
+  function micReply(m) { try { if (MIC.src) MIC.src.postMessage(m, MIC.origin); } catch (e) {} }
+  function micStart(lang, mode) {
+    micStop(true); MIC.cancel = false;
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (mode === 'sr' && SR) {
+      var rec, text = '', failed = false;
+      try { rec = new SR(); } catch (e) { return micReply({ type: 'tem-mic-error', error: 'unsupported' }); }
+      rec.lang = lang === 'en' ? 'en-US' : 'km-KH'; rec.interimResults = false; rec.continuous = false;
+      rec.onresult = function (ev) { for (var i = ev.resultIndex; i < ev.results.length; i++) if (ev.results[i].isFinal) text += ev.results[i][0].transcript; };
+      rec.onerror = function (ev) { failed = true; if (!MIC.cancel) micReply({ type: 'tem-mic-error', error: ev.error || 'error' }); };
+      rec.onend = function () { MIC.sr = null; if (!failed && !MIC.cancel) micReply({ type: 'tem-mic-text', text: text }); };
+      MIC.sr = rec;
+      try { rec.start(); } catch (e) { micReply({ type: 'tem-mic-error', error: 'unsupported' }); }
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return micReply({ type: 'tem-mic-error', error: 'unsupported' });
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      if (MIC.cancel) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+      var types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'], type = '';
+      for (var i = 0; i < types.length; i++) { try { if (MediaRecorder.isTypeSupported(types[i])) { type = types[i]; break; } } catch (e) {} }
+      var mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+      MIC.stream = stream; MIC.mr = mr; MIC.chunks = [];
+      mr.ondataavailable = function (ev) { if (ev.data && ev.data.size) MIC.chunks.push(ev.data); };
+      mr.onstop = function () {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        MIC.mr = null; MIC.stream = null; clearTimeout(MIC.timer);
+        if (MIC.cancel) return;
+        var blob = new Blob(MIC.chunks, { type: (mr.mimeType || type || 'audio/webm').split(';')[0] });
+        var fr = new FileReader();
+        fr.onload = function () { micReply({ type: 'tem-mic-audio', data: String(fr.result).split(',')[1] || '', mime: blob.type }); };
+        fr.readAsDataURL(blob);
+      };
+      mr.start();
+      MIC.timer = setTimeout(function () { micStop(false); }, 31000);
+    }).catch(function (err) { micReply({ type: 'tem-mic-error', error: (err && (err.name || err.message)) || 'error' }); });
+  }
+  function micStop(cancel) {
+    MIC.cancel = !!cancel; clearTimeout(MIC.timer);
+    try { if (MIC.sr) MIC.sr.stop(); } catch (e) {}
+    try { if (MIC.mr && MIC.mr.state !== 'inactive') MIC.mr.stop(); } catch (e) {}
+    if (cancel && MIC.stream) { MIC.stream.getTracks().forEach(function (t) { t.stop(); }); MIC.stream = null; }
+  }
   function askPush() {
     if (!pushSupported()) { toApp({ type: 'tem-push-state', state: 'unsupported' }); return; }
     if (Notification.permission === 'granted') { pushToken(); return; }
@@ -193,6 +237,9 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       else if (pushSupported() && Notification.permission === 'default' && standalone() && !ntfX) $('ntfBar').classList.remove('hidden');
     }
     if (e.data.type === 'tem-push-ask') { PUSH.src = e.source; PUSH.origin = e.origin; askPush(); }
+    if (e.data.type === 'tem-mic-start') { MIC.src = e.source; MIC.origin = e.origin; micReply({ type: 'tem-mic-ack' }); micStart(String(e.data.lang || 'km'), e.data.mode === 'sr' ? 'sr' : 'rec'); }
+    if (e.data.type === 'tem-mic-stop') micStop(false);
+    if (e.data.type === 'tem-mic-cancel') micStop(true);
     /* keep the login (iPhone clears the app's storage inside the frame when the app is closed) */
     if (e.data.type === 'tem-auth-save' && typeof e.data.token === 'string' && e.data.token.length < 400) { try { localStorage.setItem('tem_launcher_auth', e.data.token); } catch (er) {} }
     if (e.data.type === 'tem-reload') {
