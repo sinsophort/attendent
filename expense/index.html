@@ -38,7 +38,7 @@
 </style>
 </head>
 <body>
-<iframe id="app" title="Trip Expense Manager" allow="geolocation *; clipboard-write *; camera *; fullscreen *" referrerpolicy="no-referrer-when-downgrade"></iframe>
+<iframe id="app" title="Trip Expense Manager" allow="geolocation *; clipboard-write *; camera *; microphone *; fullscreen *; autoplay *" referrerpolicy="no-referrer-when-downgrade"></iframe>
 
 <div id="splash" class="layer"><div class="box">
   <img class="logo" src="icon-192.png" alt="">
@@ -195,6 +195,10 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (e.data.type === 'tem-push-ask') { PUSH.src = e.source; PUSH.origin = e.origin; askPush(); }
     /* keep the login (iPhone clears the app's storage inside the frame when the app is closed) */
     if (e.data.type === 'tem-auth-save' && typeof e.data.token === 'string' && e.data.token.length < 400) { try { localStorage.setItem('tem_launcher_auth', e.data.token); } catch (er) {} }
+    if (e.data.type === 'tem-reload') {
+      try { if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then(function (r) { if (r) r.update(); }).catch(function () {}); } catch (er) {}
+      frame.src = 'about:blank'; setTimeout(open, 80);
+    }
     if (e.data.type === 'tem-auth-clear') { try { localStorage.removeItem('tem_launcher_auth'); } catch (er) {} }
     if (e.data.type === 'tem-auth-get') {
       var tok = ''; try { tok = localStorage.getItem('tem_launcher_auth') || ''; } catch (er) {}
