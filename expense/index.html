@@ -159,6 +159,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       .catch(function (e) { PUSH.busy = false; toApp({ type: 'tem-push-state', state: 'error', error: String(e && e.message || e) }); });
   }
   /* ---- microphone: Google's page cannot use it, so the launcher records and sends the sound to the app ---- */
+  var GEO = { watch: null };
   var MIC = { src: null, origin: '*', mr: null, stream: null, sr: null, chunks: [], cancel: false, timer: null };
   function micReply(m) { try { if (MIC.src) MIC.src.postMessage(m, MIC.origin); } catch (e) {} }
   function micStart(lang, mode, maxSec) {
@@ -271,6 +272,19 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       micStart(lang, mode, e.data.maxSec);
     }
     if (e.data.type === 'tem-mic-stop') micStop(false);
+    /* location: Google's frame blocks it on Android, so the launcher (the top page) asks the phone */
+    if (e.data.type === 'tem-geo-get' || e.data.type === 'tem-geo-watch') {
+      var src = e.source, org = e.origin, rid = String(e.data.id || '');
+      var send = function (m) { try { src.postMessage(m, org); } catch (er) {} };
+      send({ type: 'tem-geo-ack', id: rid });
+      if (!navigator.geolocation) { send({ type: 'tem-geo-err', id: rid, error: 'unsupported' }); return; }
+      var ok = function (p) { send({ type: 'tem-geo-pos', id: rid, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, heading: p.coords.heading, speed: p.coords.speed, t: Date.now() }); };
+      var bad = function (er) { send({ type: 'tem-geo-err', id: rid, error: er && er.code === 1 ? 'denied' : (er && er.message) || 'error' }); };
+      var opts = { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 };
+      if (e.data.type === 'tem-geo-get') { navigator.geolocation.getCurrentPosition(ok, bad, opts); return; }
+      if (GEO.watch !== null) { try { navigator.geolocation.clearWatch(GEO.watch); } catch (er) {} GEO.watch = null; }
+      if (e.data.on) GEO.watch = navigator.geolocation.watchPosition(ok, bad, opts);
+    }
     if (e.data.type === 'tem-mic-cancel') micStop(true);
     /* keep the login (iPhone clears the app's storage inside the frame when the app is closed) */
     if (e.data.type === 'tem-auth-save' && typeof e.data.token === 'string' && e.data.token.length < 400) { try { localStorage.setItem('tem_launcher_auth', e.data.token); } catch (er) {} }
