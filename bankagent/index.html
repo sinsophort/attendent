@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+  <meta id="ghViewportMeta" name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0f172a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -482,7 +482,7 @@
   <main class="iframe-stage">
     <iframe
       id="gasAppFrame"
-      src="https://script.google.com/macros/s/AKfycbyKXYs7eau0R1yfyHMPGbyk2DAtduRdVuT2jwxofIiGRByAffzu0tPJBr4N5kKNZgM/exec"
+      src="https://script.google.com/macros/s/AKfycbzHdD2qdkV_3wcpic4kb0z5a01YTBHImanFEWssz5-Ssj2DjbL5iioaJdZFi5T-CW-O_Q/exec"
       title="Dash Board Report Bank GO/7 v3.6.9"
       allow="clipboard-read; clipboard-write; fullscreen; camera"
       allowfullscreen>
@@ -493,7 +493,7 @@
     // =========================================================================
     // CONFIGURATION: តំណភ្ជាប់ Google Apps Script Web App URL (.../exec)
     // =========================================================================
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyKXYs7eau0R1yfyHMPGbyk2DAtduRdVuT2jwxofIiGRByAffzu0tPJBr4N5kKNZgM/exec";
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzHdD2qdkV_3wcpic4kb0z5a01YTBHImanFEWssz5-Ssj2DjbL5iioaJdZFi5T-CW-O_Q/exec";
 
     const loaderOverlay = document.getElementById('appLoaderOverlay');
     const progressBar = document.getElementById('loaderProgressBar');
@@ -561,7 +561,26 @@
       dismissLoaderNow();
     }, 8500);
 
-    // Register Service Worker for PWA ("Add to Home Screen")
+    // Listen for post-login mobile zoom reset signal from inside the Google Apps Script iframe
+    function forceResetParentMobileZoom() {
+      try {
+        const vp = document.getElementById('ghViewportMeta') || document.querySelector('meta[name="viewport"]');
+        if (vp) {
+          vp.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+        }
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      } catch (e) {}
+    }
+
+    window.addEventListener('message', (event) => {
+      if (event && event.data && event.data.type === 'GO7_RESET_MOBILE_ZOOM') {
+        forceResetParentMobileZoom();
+      }
+    });
+
+        // Register Service Worker for PWA ("Add to Home Screen")
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
