@@ -20,7 +20,7 @@
   <style>
     :root {
       /* កម្ពស់បាំងរបារអក្សរ Google Apps Script ខាងលើដោយស្វ័យប្រវត្តិ (Top Warning Banner Mask Offset) */
-      --gas-banner-crop: 10px; /* កែលេខនេះ (ឧ. 18px, 22px, 24px, 28px ឬ 0px) ដើម្បីទម្លាក់ ឬរុញផ្ទាំងខាងលើ */
+      --gas-banner-crop: 0px;
       --top-shield-height: 0px;
       --bg-deep: #070d19;
       --bg-navy: #0f172a;
@@ -425,7 +425,7 @@
     @media (max-width: 640px) {
       :root {
         /* លើទូរស័ព្ទដៃ របារព្រមាន Google អាចខ្ពស់ជាងកុំព្យូទ័របន្តិច */
-        --gas-banner-crop: 10px;
+        --gas-banner-crop: 0px;
       }
       .loader-card {
         padding: 30px 22px 24px 22px;
@@ -478,52 +478,16 @@
     </div>
   </div>
 
-  <!-- 2. OPTIONAL TOP BRAND SHIELD BAR (បាំងរបារខាងលើដោយរបារ Brand ប្រសិនបើបើក Shield Mode) -->
-  <header id="topBrandShield" class="top-brand-shield">
-    <div class="shield-brand-left">
-      <img src="assets/logo.png" alt="GO/7" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNDAgMjQwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj4KICA8ZGVmcz4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iYmdHcmFkIiBjeD0iNTAlIiBjeT0iNDUlIiByPSI2MCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMWUzYThhIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iNTUlIiBzdG9wLWNvbG9yPSIjMGYxNzJhIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzA2MGIxNiIvPgogICAgPC9yYWRpYWxHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ29sZEdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjZmVmMDhhIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMzUlIiBzdG9wLWNvbG9yPSIjZjU5ZTBiIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iNzAlIiBzdG9wLWNvbG9yPSIjYjQ1MzA5Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI2ZkZTA0NyIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iY3lhbkdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjNjdlOGY5Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iNTAlIiBzdG9wLWNvbG9yPSIjMGVhNWU5Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzI1NjNlYiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxmaWx0ZXIgaWQ9Imdsb3ciIHg9Ii0yMCUiIHk9Ii0yMCUiIHdpZHRoPSIxNDAlIiBoZWlnaHQ9IjE0MCUiPgogICAgICA8ZmVHYXVzc2lhbkJsdXIgc3RkRGV2aWF0aW9uPSI0IiByZXN1bHQ9ImJsdXIiLz4KICAgICAgPGZlQ29tcG9zaXRlIGluPSJTb3VyY2VHcmFwaGljIiBpbjI9ImJsdXIiIG9wZXJhdG9yPSJvdmVyIi8+CiAgICA8L2ZpbHRlcj4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjI0MCIgaGVpZ2h0PSIyNDAiIHJ4PSI1MiIgZmlsbD0idXJsKCNiZ0dyYWQpIi8+CiAgPHJlY3QgeD0iNiIgeT0iNiIgd2lkdGg9IjIyOCIgaGVpZ2h0PSIyMjgiIHJ4PSI0NiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ1cmwoI2N5YW5HcmFkKSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CiAgPCEtLSBTbWFydHBob25lIFNpbGhvdWV0dGUgLS0+CiAgPHJlY3QgeD0iNzQiIHk9IjI4IiB3aWR0aD0iOTIiIGhlaWdodD0iMTg0IiByeD0iMTgiIGZpbGw9IiMwYjE1MjgiIHN0cm9rZT0idXJsKCNnb2xkR3JhZCkiIHN0cm9rZS13aWR0aD0iMy41Ii8+CiAgPHJlY3QgeD0iODAiIHk9IjM2IiB3aWR0aD0iODAiIGhlaWdodD0iMTY4IiByeD0iMTMiIGZpbGw9IiMwZjI0NDIiIHN0cm9rZT0iIzM4YmRmOCIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2Utb3BhY2l0eT0iMC40NSIvPgogIDxyZWN0IHg9IjEwNCIgeT0iMzMiIHdpZHRoPSIzMiIgaGVpZ2h0PSI0IiByeD0iMiIgZmlsbD0iIzM4YmRmOCIgb3BhY2l0eT0iMC42Ii8+CiAgPHJlY3QgeD0iMTAyIiB5PSIxOTYiIHdpZHRoPSIzNiIgaGVpZ2h0PSIzLjUiIHJ4PSIxLjc1IiBmaWxsPSIjMzhiZGY4IiBvcGFjaXR5PSIwLjc1Ii8+CiAgPCEtLSBTaGllbGQgRW1ibGVtIC0tPgogIDxwYXRoIGQ9Ik0xMjAgNTQgTDE3OCA3OCBMMTc4IDEyNCBDMTc4IDE2MiAxNTIgMTg2IDEyMCAxOTggQzg4IDE4NiA2MiAxNjIgNjIgMTI0IEw2MiA3OCBaIiBmaWxsPSIjMGMxOTMwIiBzdHJva2U9InVybCgjZ29sZEdyYWQpIiBzdHJva2Utd2lkdGg9IjUiIGZpbHRlcj0idXJsKCNnbG93KSIvPgogIDxwYXRoIGQ9Ik0xMjAgNjQgTDE2OCA4NCBMMTY4IDEyMiBDMTY4IDE1NCAxNDYgMTc1IDEyMCAxODYgQzk0IDE3NSA3MiAxNTQgNzIgMTIyIEw3MiA4NCBaIiBmaWxsPSIjMGYyOTRhIiBzdHJva2U9InVybCgjY3lhbkdyYWQpIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8IS0tIElubmVyIFZhdWx0IFJpbmcgLS0+CiAgPGNpcmNsZSBjeD0iMTIwIiBjeT0iMTIyIiByPSIzNCIgZmlsbD0iIzA4MTQyNiIgc3Ryb2tlPSJ1cmwoI2dvbGRHcmFkKSIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1kYXNoYXJyYXk9IjEwIDUiLz4KICA8Y2lyY2xlIGN4PSIxMjAiIGN5PSIxMjIiIHI9IjI2IiBmaWxsPSJub25lIiBzdHJva2U9IiMzOGJkZjgiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2Utb3BhY2l0eT0iMC42Ii8+CiAgPCEtLSBHTy83IFR5cG9ncmFwaHkgLS0+CiAgPHRleHQgeD0iOTgiIHk9IjEzMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IidTZWdvZSBVSScsICdJbnRlcicsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI5MDAiIGZvbnQtc2l6ZT0iMzAiIGZpbGw9InVybCgjZ29sZEdyYWQpIiBsZXR0ZXItc3BhY2luZz0iMC41Ij5HTzwvdGV4dD4KICA8cGF0aCBkPSJNMTI2IDE0NCBMMTQyIDk4IiBzdHJva2U9InVybCgjZ29sZEdyYWQpIiBzdHJva2Utd2lkdGg9IjUuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPHRleHQgeD0iMTU1IiB5PSIxMzIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSInU2Vnb2UgVUknLCAnSW50ZXInLCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iOTAwIiBmb250LXNpemU9IjMxIiBmaWxsPSJ1cmwoI2N5YW5HcmFkKSI+NzwvdGV4dD4KPC9zdmc+Cg=='" />
-      <span>Dash Board Report Bank GO/7</span>
-      <span class="shield-ver-pill">v3.6.8</span>
-    </div>
-    <div class="shield-status-right">
-      <span class="live-dot"></span>
-      <span>Connected</span>
-    </div>
-  </header>
-
   <!-- 3. FULL-SCREEN IFRAME CONTAINER (បាំងអក្សរ Google Apps Script ខាងលើដោយស្វ័យប្រវត្តិ) -->
   <main class="iframe-stage">
     <iframe
       id="gasAppFrame"
-      src="https://script.google.com/macros/s/AKfycbyKXYs7eau0R1yfyHMPGbyk2DAtduRdVuT2jwxofIiGRByAffzu0tPJBr4N5kKNZgM/exec"
+      src="https://script.google.com/macros/s/AKfycbzHdD2qdkV_3wcpic4kb0z5a01YTBHImanFEWssz5-Ssj2DjbL5iioaJdZFi5T-CW-O_Q/exec"
       title="Dash Board Report Bank GO/7 v3.6.8"
       allow="clipboard-read; clipboard-write; fullscreen; camera"
       allowfullscreen>
     </iframe>
   </main>
-
-  <!-- 4. DISCREET FLOATING CONTROL DOCK (ប៊ូតុងកែកំពស់ផ្ទាំងខាងលើ និងបញ្ជារហ័សនៅជ្រុងក្រោមស្តាំ) -->
-  <div id="floatingDock" class="floating-dock dock-collapsed" title="System Display Controls">
-    <button type="button" class="dock-btn" onclick="toggleDockExpand()" title="ចុចដើម្បីបើកប៊ូតុងកែកំពស់ផ្ទាំងខាងលើ">
-      🛡️ <span>GO/7</span>
-    </button>
-    <button type="button" class="dock-btn dock-extra" onclick="adjustCropOffset(-2)" title="ទម្លាក់ផ្ទាំងចុះក្រោម (Lower View)">
-      ⬇ ទម្លាក់ចុះ
-    </button>
-    <span id="cropPxBadge" class="dock-btn dock-extra" style="background:#0f172a; color:#38bdf8; cursor:default;">10px</span>
-    <button type="button" class="dock-btn dock-extra" onclick="adjustCropOffset(2)" title="រុញផ្ទាំងឡើងលើ (Raise View)">
-      ⬆ រុញឡើង
-    </button>
-    <button type="button" class="dock-btn dock-extra" onclick="cycleBannerMaskMode()" id="btnMaskModeLabel" title="Switch Top Banner Mask Mode">
-      ✂️ Mode: Auto
-    </button>
-    <button type="button" class="dock-btn dock-extra" onclick="reloadGasIframe()" title="Reload System">
-      🔄 Reload
-    </button>
-    <button type="button" class="dock-btn dock-extra" onclick="toggleWrapperFullScreen()" title="Full Screen">
-      ⛶ Fullscreen
-    </button>
-  </div>
 
   <script>
     // =========================================================================
@@ -596,101 +560,6 @@
     setTimeout(() => {
       dismissLoaderNow();
     }, 8500);
-
-    // =========================================================================
-    // TOP BANNER MASKING MODE SWITCHER (ប្តូររបៀបបាំងរបារខាងលើបាន ៤ ទម្រង់)
-    // 1. AUTO_CROP (លំនាំដើម៖ រុញ Iframe ឡើងលើ 38px/42px បាត់អក្សរ Google 100%)
-    // 2. DEEP_CROP (រុញឡើងលើ 46px សម្រាប់អេក្រង់ដែលមានរបារពីរជាន់)
-    // 3. SHIELD_BAR (ដាក់របារពណ៌ទឹកប៊ិចចាស់ GO/7 បាំងពីលើរបារ Google)
-    // 4. CROP_OFF (បង្ហាញធម្មតា 0px ប្រសិនបើបានចុចបិទរបារ Google រួច)
-    // =========================================================================
-    // កម្ពស់លំនាំដើម 24px (ទាបជាងមុន មិនឱ្យដាច់ផ្ទាំងខាងលើ) និងអាចចុច ⬇ / ⬆ កែតាមចិត្តពី 0px ដល់ 55px
-    const DEFAULT_CROP_PX = 10;
-    let customCropPx = parseInt(localStorage.getItem('GO7_CUSTOM_CROP_PX_10'), 10);
-    if (isNaN(customCropPx)) customCropPx = DEFAULT_CROP_PX;
-
-    let currentMaskMode = localStorage.getItem('GO7_BANNER_MASK_MODE_10') || 'AUTO_CROP';
-
-    function syncCropHeightUI() {
-      const badge = document.getElementById('cropPxBadge');
-      if (currentMaskMode === 'SHIELD_BAR') {
-        document.documentElement.style.setProperty('--gas-banner-crop', '0px');
-        if (badge) badge.textContent = 'Shield';
-      } else if (currentMaskMode === 'CROP_OFF') {
-        document.documentElement.style.setProperty('--gas-banner-crop', '0px');
-        if (badge) badge.textContent = '0px';
-      } else {
-        document.documentElement.style.setProperty('--gas-banner-crop', customCropPx + 'px');
-        if (badge) badge.textContent = customCropPx + 'px';
-      }
-    }
-
-    function adjustCropOffset(deltaPx) {
-      currentMaskMode = 'AUTO_CROP';
-      localStorage.setItem('GO7_BANNER_MASK_MODE_10', 'AUTO_CROP');
-      document.body.classList.remove('shield-bar-active', 'crop-deep-mode', 'crop-off-mode');
-      customCropPx = Math.max(0, Math.min(55, customCropPx + deltaPx));
-      localStorage.setItem('GO7_CUSTOM_CROP_PX_10', String(customCropPx));
-      syncCropHeightUI();
-    }
-
-    function applyBannerMaskMode(mode) {
-      currentMaskMode = mode;
-      localStorage.setItem('GO7_BANNER_MASK_MODE_10', mode);
-      document.body.classList.remove('shield-bar-active', 'crop-deep-mode', 'crop-off-mode');
-      const btnLbl = document.getElementById('btnMaskModeLabel');
-      if (mode === 'SHIELD_BAR') {
-        document.body.classList.add('shield-bar-active');
-        if (btnLbl) btnLbl.textContent = '🛡️ Mode: Brand Bar';
-      } else if (mode === 'DEEP_CROP') {
-        customCropPx = 34;
-        localStorage.setItem('GO7_CUSTOM_CROP_PX_10', '34');
-        if (btnLbl) btnLbl.textContent = '✂️ Mode: 34px';
-      } else if (mode === 'CROP_OFF') {
-        document.body.classList.add('crop-off-mode');
-        if (btnLbl) btnLbl.textContent = '👁️ Mode: 0px';
-      } else {
-        customCropPx = DEFAULT_CROP_PX;
-        localStorage.setItem('GO7_CUSTOM_CROP_PX_10', String(customCropPx));
-        if (btnLbl) btnLbl.textContent = '✂️ Mode: Auto (' + customCropPx + 'px)';
-      }
-      syncCropHeightUI();
-    }
-
-    function cycleBannerMaskMode() {
-      const modes = ['AUTO_CROP', 'DEEP_CROP', 'SHIELD_BAR', 'CROP_OFF'];
-      const nextIdx = (modes.indexOf(currentMaskMode) + 1) % modes.length;
-      applyBannerMaskMode(modes[nextIdx]);
-    }
-
-    applyBannerMaskMode(currentMaskMode);
-
-    function toggleDockExpand() {
-      const dock = document.getElementById('floatingDock');
-      if (dock) dock.classList.toggle('dock-collapsed');
-    }
-
-    function reloadGasIframe() {
-      isLoaderDismissed = false;
-      currentProgress = 25;
-      stepIndex = 0;
-      progressBar.style.width = '25%';
-      stepText.textContent = 'Reloading GO/7 System...';
-      percentText.textContent = '25%';
-      loaderOverlay.classList.remove('loader-hidden');
-      gasFrame.src = GAS_WEB_APP_URL + (GAS_WEB_APP_URL.includes('?') ? '&' : '?') + '_t=' + Date.now();
-    }
-
-    function toggleWrapperFullScreen() {
-      const docEl = document.documentElement;
-      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-        if (docEl.requestFullscreen) docEl.requestFullscreen();
-        else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
-      } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-      }
-    }
 
     // Register Service Worker for PWA ("Add to Home Screen")
     if ('serviceWorker' in navigator) {
