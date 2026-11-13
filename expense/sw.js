@@ -1,6 +1,6 @@
 /* Trip Expense Manager — PWA Launcher service worker: caches only the launcher shell.
    The app itself (Google Apps Script) is always loaded live from Google. */
-var CACHE = 'trip-launcher-v8';
+var CACHE = 'trip-launcher-v10';
 var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
@@ -28,16 +28,21 @@ self.addEventListener('push', function (e) {
   var m = d.data || d.notification || d || {};
   e.waitUntil(bumpBadge().then(function () {
     return self.registration.showNotification(String(m.title || 'Trip Expense').slice(0, 120), {
-      body: String(m.body || '').slice(0, 500), icon: 'icon-192.png', badge: 'icon-192.png', tag: m.tag || ('tem-' + Date.now()), renotify: true
+      body: String(m.body || '').slice(0, 500), icon: 'icon-192.png', badge: 'icon-192.png', tag: m.tag || ('tem-' + Date.now()), renotify: true,
+      data: { go: validGo(m.go) }
     });
   }));
 });
-/* tapping an alert opens (or focuses) the app */
+function validGo(g) { return /^(chat|exp|req|page):[A-Za-z0-9@_-]{1,90}$/.test(String(g || '')) ? String(g) : ''; }
+/* tapping an alert opens (or focuses) the app and goes straight to that expense / request / chat */
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();
+  var go = validGo(e.notification.data && e.notification.data.go);
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
-    for (var i = 0; i < list.length; i++) { if ('focus' in list[i]) return list[i].focus(); }
-    return self.clients.openWindow ? self.clients.openWindow('./') : null;
+    for (var i = 0; i < list.length; i++) {
+      if ('focus' in list[i]) { if (go) list[i].postMessage({ type: 'tem-go', go: go }); return list[i].focus(); }
+    }
+    return self.clients.openWindow ? self.clients.openWindow('./' + (go ? '?go=' + encodeURIComponent(go) : '')) : null;
   }));
 });
 self.addEventListener('fetch', function (e) {

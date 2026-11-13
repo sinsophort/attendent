@@ -161,8 +161,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   /* ---- microphone: Google's page cannot use it, so the launcher records and sends the sound to the app ---- */
   var MIC = { src: null, origin: '*', mr: null, stream: null, sr: null, chunks: [], cancel: false, timer: null };
   function micReply(m) { try { if (MIC.src) MIC.src.postMessage(m, MIC.origin); } catch (e) {} }
-  function micStart(lang, mode) {
-    micStop(true); MIC.cancel = false;
+  function micStart(lang, mode, maxSec) {
+    micStop(true); MIC.cancel = false; MIC.maxSec = Math.max(5, Math.min(180, Number(maxSec) || 30));
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (mode === 'sr' && SR) {
       var rec, text = '', failed = false;
@@ -203,7 +203,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
         fr.readAsDataURL(blob);
       };
       mr.start();
-      MIC.timer = setTimeout(function () { micStop(false); }, 31000);
+      MIC.timer = setTimeout(function () { micStop(false); }, (MIC.maxSec + 1) * 1000);
     }).catch(function (err) { micReply({ type: 'tem-mic-error', error: (err && (err.name || err.message)) || 'error' }); });
   }
   function micStop(cancel) {
@@ -227,18 +227,32 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     /* iPhone needs a tap on the launcher itself: show the bar if no answer came */
     setTimeout(function () { if (Notification.permission === 'default' && !shown) { shown = true; $('ntfBar').classList.remove('hidden'); } }, 1200);
   }
+  /* "open this place" from a tapped notification: ?go=… on start, or a message from the service worker */
+  function validGo(g) { return /^(chat|exp|req|page):[A-Za-z0-9@_-]{1,90}$/.test(String(g || '')) ? String(g) : ''; }
+  var APPWIN = null, APPORIGIN = '', PENDING_GO = '';
+  try {
+    var q = new URLSearchParams(location.search), g0 = validGo(q.get('go'));
+    if (g0) { PENDING_GO = g0; q.delete('go'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); }
+  } catch (e) {}
+  function sendGo(go) {
+    go = validGo(go); if (!go) return;
+    if (APPWIN) { try { APPWIN.postMessage({ type: 'tem-go', go: go }, APPORIGIN); PENDING_GO = ''; return; } catch (e) {} }
+    PENDING_GO = go;
+  }
+  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'tem-go') sendGo(e.data.go); });
   function okOrigin(o) { return /^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(o) || o === 'https://script.google.com'; }
-  function localNotify(title, body) {
+  function localNotify(title, body, go) {
     if (!('Notification' in window) || Notification.permission !== 'granted' || document.visibilityState === 'visible') return;
     if (!navigator.serviceWorker) return;
     navigator.serviceWorker.ready.then(function (reg) {
-      reg.showNotification(title, { body: body, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'tem-' + Date.now() });
+      reg.showNotification(title, { body: body, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'tem-' + Date.now(), data: { go: validGo(go) } });
     }).catch(function () {});
   }
   window.addEventListener('message', function (e) {
     if (!okOrigin(e.origin) || !e.data || typeof e.data !== 'object') return;
+    if (e.source && e.data.type !== 'tem-go') { APPWIN = e.source; APPORIGIN = e.origin; if (PENDING_GO && e.data.type === 'tem-ready') sendGo(PENDING_GO); }
     if (e.data.type === 'tem-badge') setBadge(e.data.count);
-    if (e.data.type === 'tem-notify') localNotify(String(e.data.title || '').slice(0, 80), String(e.data.body || '').slice(0, 200));
+    if (e.data.type === 'tem-notify') localNotify(String(e.data.title || '').slice(0, 80), String(e.data.body || '').slice(0, 200), e.data.go);
     if (e.data.type === 'tem-push-config' && e.data.config && typeof e.data.config === 'object') {
       var c = e.data.config, ok = ['apiKey', 'projectId', 'messagingSenderId', 'appId', 'vapidKey'].every(function (k) { return typeof c[k] === 'string' && c[k]; });
       if (!ok) return;
@@ -254,13 +268,14 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       /* the phone's own recognition is the fastest (Android: Khmer + English, iPhone: English); otherwise record */
       var mode = e.data.mode === 'sr' ? 'sr' : e.data.mode === 'rec' ? 'rec' : (SRok && !(ios && lang === 'km') ? 'sr' : 'rec');
       MIC.canRec = e.data.canRec !== false;
-      micStart(lang, mode);
+      micStart(lang, mode, e.data.maxSec);
     }
     if (e.data.type === 'tem-mic-stop') micStop(false);
     if (e.data.type === 'tem-mic-cancel') micStop(true);
     /* keep the login (iPhone clears the app's storage inside the frame when the app is closed) */
     if (e.data.type === 'tem-auth-save' && typeof e.data.token === 'string' && e.data.token.length < 400) { try { localStorage.setItem('tem_launcher_auth', e.data.token); } catch (er) {} }
     if (e.data.type === 'tem-reload') {
+      APPWIN = null;
       try { if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then(function (r) { if (r) r.update(); }).catch(function () {}); } catch (er) {}
       frame.src = 'about:blank'; setTimeout(open, 80);
     }
