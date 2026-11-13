@@ -160,6 +160,14 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   }
   /* ---- microphone: Google's page cannot use it, so the launcher records and sends the sound to the app ---- */
   var GEO = { watch: null };
+  var WAKE = { want: false, s: null };
+  function wakeApply() {
+    try {
+      if (WAKE.want && !WAKE.s && navigator.wakeLock && document.visibilityState === 'visible') navigator.wakeLock.request('screen').then(function (s) { WAKE.s = s; s.addEventListener('release', function () { WAKE.s = null; }); }).catch(function () {});
+      if (!WAKE.want && WAKE.s) { WAKE.s.release().catch(function () {}); WAKE.s = null; }
+    } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') wakeApply(); });
   var MIC = { src: null, origin: '*', mr: null, stream: null, sr: null, chunks: [], cancel: false, timer: null };
   function micReply(m) { try { if (MIC.src) MIC.src.postMessage(m, MIC.origin); } catch (e) {} }
   function micStart(lang, mode, maxSec) {
@@ -230,28 +238,39 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   }
   /* "open this place" from a tapped notification: ?go=… on start, or a message from the service worker */
   function validGo(g) { return /^(chat|exp|req|page):[A-Za-z0-9@_-]{1,90}$/.test(String(g || '')) ? String(g) : ''; }
-  var APPWIN = null, APPORIGIN = '', PENDING_GO = '';
+  var APPWIN = null, APPORIGIN = '', PENDING_GO = '', PENDING_MSG = '';
   try {
     var q = new URLSearchParams(location.search), g0 = validGo(q.get('go'));
-    if (g0) { PENDING_GO = g0; q.delete('go'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); }
+    if (g0) { PENDING_GO = g0; PENDING_MSG = String(q.get('gm') || '').slice(0, 2500); q.delete('go'); q.delete('gm'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); }
   } catch (e) {}
-  function sendGo(go) {
+  function sendGo(go, msg) {
     go = validGo(go); if (!go) return;
-    if (APPWIN) { try { APPWIN.postMessage({ type: 'tem-go', go: go }, APPORIGIN); PENDING_GO = ''; return; } catch (e) {} }
-    PENDING_GO = go;
+    msg = typeof msg === 'string' ? msg.slice(0, 2500) : '';
+    if (APPWIN) { try { APPWIN.postMessage({ type: 'tem-go', go: go, msg: msg }, APPORIGIN); PENDING_GO = ''; PENDING_MSG = ''; return; } catch (e) {} }
+    PENDING_GO = go; PENDING_MSG = msg;
   }
-  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'tem-go') sendGo(e.data.go); });
+  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'tem-go') sendGo(e.data.go, e.data.msg); });
+  /* save a photo or file from the app to the phone (Google's frame may not be allowed to download) */
+  function saveFile(blob, name) {
+    if (!(blob instanceof Blob)) return;
+    name = String(name || 'file').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'file';
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+  }
   function okOrigin(o) { return /^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(o) || o === 'https://script.google.com'; }
   function localNotify(title, body, go) {
     if (!('Notification' in window) || Notification.permission !== 'granted' || document.visibilityState === 'visible') return;
     if (!navigator.serviceWorker) return;
     navigator.serviceWorker.ready.then(function (reg) {
-      reg.showNotification(title, { body: body, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'tem-' + Date.now(), data: { go: validGo(go) } });
+      reg.showNotification(title, { body: body, icon: 'icon-192.png', badge: 'badge-96.png', tag: 'tem-' + Date.now(), data: { go: validGo(go) } });
     }).catch(function () {});
   }
   window.addEventListener('message', function (e) {
     if (!okOrigin(e.origin) || !e.data || typeof e.data !== 'object') return;
-    if (e.source && e.data.type !== 'tem-go') { APPWIN = e.source; APPORIGIN = e.origin; if (PENDING_GO && e.data.type === 'tem-ready') sendGo(PENDING_GO); }
+    if (e.source && e.data.type !== 'tem-go') { APPWIN = e.source; APPORIGIN = e.origin; if (PENDING_GO && e.data.type === 'tem-ready') sendGo(PENDING_GO, PENDING_MSG); }
+    if (e.data.type === 'tem-save') saveFile(e.data.blob, e.data.name);
     if (e.data.type === 'tem-badge') setBadge(e.data.count);
     if (e.data.type === 'tem-notify') localNotify(String(e.data.title || '').slice(0, 80), String(e.data.body || '').slice(0, 200), e.data.go);
     if (e.data.type === 'tem-push-config' && e.data.config && typeof e.data.config === 'object') {
@@ -272,6 +291,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       micStart(lang, mode, e.data.maxSec);
     }
     if (e.data.type === 'tem-mic-stop') micStop(false);
+    /* keep the screen on while sharing live location (only the top page may ask for this) */
+    if (e.data.type === 'tem-wake') { WAKE.want = !!e.data.on; wakeApply(); }
     /* location: Google's frame blocks it on Android, so the launcher (the top page) asks the phone */
     if (e.data.type === 'tem-geo-get' || e.data.type === 'tem-geo-watch') {
       var src = e.source, org = e.origin, rid = String(e.data.id || '');
@@ -280,8 +301,16 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       if (!navigator.geolocation) { send({ type: 'tem-geo-err', id: rid, error: 'unsupported' }); return; }
       var ok = function (p) { send({ type: 'tem-geo-pos', id: rid, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, heading: p.coords.heading, speed: p.coords.speed, t: Date.now() }); };
       var bad = function (er) { send({ type: 'tem-geo-err', id: rid, error: er && er.code === 1 ? 'denied' : (er && er.message) || 'error' }); };
-      var opts = { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 };
-      if (e.data.type === 'tem-geo-get') { navigator.geolocation.getCurrentPosition(ok, bad, opts); return; }
+      var opts = { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 };
+      if (e.data.type === 'tem-geo-get') {
+        /* the first answer is often rough (Wi-Fi / towers): wait up to 7 s for GPS and send the best one */
+        var best = null, done = false, wid = null;
+        var fin = function () { if (done) return; done = true; try { navigator.geolocation.clearWatch(wid); } catch (er) {} if (best) ok(best); else bad({ message: 'timeout' }); };
+        wid = navigator.geolocation.watchPosition(function (p) { if (!best || p.coords.accuracy < best.coords.accuracy) best = p; if (best.coords.accuracy <= 25) fin(); },
+          function (er) { if (!best) { done = true; try { navigator.geolocation.clearWatch(wid); } catch (x) {} bad(er); } else fin(); }, opts);
+        setTimeout(fin, 7000);
+        return;
+      }
       if (GEO.watch !== null) { try { navigator.geolocation.clearWatch(GEO.watch); } catch (er) {} GEO.watch = null; }
       if (e.data.on) GEO.watch = navigator.geolocation.watchPosition(ok, bad, opts);
     }

@@ -1,7 +1,7 @@
 /* Trip Expense Manager — PWA Launcher service worker: caches only the launcher shell.
    The app itself (Google Apps Script) is always loaded live from Google. */
-var CACHE = 'trip-launcher-v11';
-var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
+var CACHE = 'trip-launcher-v13';
+var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'badge-96.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
 });
@@ -28,8 +28,10 @@ self.addEventListener('push', function (e) {
   var m = d.data || d.notification || d || {};
   e.waitUntil(bumpBadge().then(function () {
     return self.registration.showNotification(String(m.title || 'Trip Expense').slice(0, 120), {
-      body: String(m.body || '').slice(0, 500), icon: 'icon-192.png', badge: 'icon-192.png', tag: m.tag || ('tem-' + Date.now()), renotify: true,
-      data: { go: validGo(m.go) }
+      /* icon = the big picture (the app icon); badge = the small status-bar icon: Android needs it white on transparent,
+         otherwise it shows a plain white square */
+      body: String(m.body || '').slice(0, 500), icon: 'icon-192.png', badge: 'badge-96.png', tag: m.tag || ('tem-' + Date.now()), renotify: true,
+      data: { go: validGo(m.go), msg: typeof m.msg === 'string' ? m.msg.slice(0, 2500) : '' }
     });
   }));
 });
@@ -38,11 +40,13 @@ function validGo(g) { return /^(chat|exp|req|page):[A-Za-z0-9@_-]{1,90}$/.test(S
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();
   var go = validGo(e.notification.data && e.notification.data.go);
+  /* the chat message itself travels with the alert, so the app can show it at once */
+  var msg = go && /^chat:/.test(go) && e.notification.data && typeof e.notification.data.msg === 'string' ? e.notification.data.msg.slice(0, 2500) : '';
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
     for (var i = 0; i < list.length; i++) {
-      if ('focus' in list[i]) { if (go) list[i].postMessage({ type: 'tem-go', go: go }); return list[i].focus(); }
+      if ('focus' in list[i]) { if (go) list[i].postMessage({ type: 'tem-go', go: go, msg: msg }); return list[i].focus(); }
     }
-    return self.clients.openWindow ? self.clients.openWindow('./' + (go ? '?go=' + encodeURIComponent(go) : '')) : null;
+    return self.clients.openWindow ? self.clients.openWindow('./' + (go ? '?go=' + encodeURIComponent(go) + (msg ? '&gm=' + encodeURIComponent(msg) : '') : '')) : null;
   }));
 });
 self.addEventListener('fetch', function (e) {
