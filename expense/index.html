@@ -249,7 +249,33 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (APPWIN) { try { APPWIN.postMessage({ type: 'tem-go', go: go, msg: msg }, APPORIGIN); PENDING_GO = ''; PENDING_MSG = ''; return; } catch (e) {} }
     PENDING_GO = go; PENDING_MSG = msg;
   }
-  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'tem-go') sendGo(e.data.go, e.data.msg); });
+  /* a target is passed on only once, whichever way it arrives first (message from the service worker, or the shared cache) */
+  var GO_SEEN = {};
+  function goOnce(go, msg, key) {
+    key = key || go;
+    if (GO_SEEN[key] && Date.now() - GO_SEEN[key] < 15000) return;
+    GO_SEEN[key] = Date.now();
+    sendGo(go, msg);
+  }
+  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'tem-go') goOnce(e.data.go, e.data.msg); });
+  function goFromCache() {
+    try {
+      if (!window.caches) return;
+      caches.open('tem-badge').then(function (c) {
+        return c.match('go').then(function (r) {
+          if (!r) return;
+          return r.json().then(function (o) {
+            c.delete('go');
+            if (o && o.go && Date.now() - (o.t || 0) < 120000) goOnce(o.go, o.msg);
+          });
+        });
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  goFromCache();
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') goFromCache(); });
+  window.addEventListener('focus', goFromCache);
+  window.addEventListener('pageshow', goFromCache);
   /* save a photo or file from the app to the phone (Google's frame may not be allowed to download) */
   function saveFile(blob, name) {
     if (!(blob instanceof Blob)) return;
