@@ -1,0 +1,30 @@
+{
+  "name": "Dash Board Report Bank GO/7 (v3.6.8)",
+  "short_name": "Bank GO/7",
+  "description": "Bank Operating, Phone Inventory, IMEI & Monthly Roster System v3.6.8",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#070d19",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
