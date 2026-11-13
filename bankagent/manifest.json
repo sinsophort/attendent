@@ -1,7 +1,7 @@
 {
-  "name": "Dash Board Report Bank GO/7 (v3.6.8)",
+  "name": "Dash Board Report Bank GO/7 (v3.6.9)",
   "short_name": "Bank GO/7",
-  "description": "Bank Operating, Phone Inventory, IMEI & Monthly Roster System v3.6.8",
+  "description": "Bank Operating, Phone Inventory, IMEI & Monthly Roster System v3.6.9",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",

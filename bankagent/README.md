@@ -1,4 +1,4 @@
-# Dash Board Report Bank GO/7 — GitHub Pages Web App Package (v3.6.8)
+# Dash Board Report Bank GO/7 — GitHub Pages Web App Package (v3.6.9)
 
 កញ្ចប់ឯកសារនេះត្រូវបានរចនាឡើងសម្រាប់បង្ហោះលើ **GitHub Pages** ដើម្បី៖
 1. **បាំងរបារអក្សរព្រមានខាងលើរបស់ Google Apps Script** (`This application was created by a Google Apps Script user...`) មិនឱ្យឃើញអក្សរ ១០០% ទាំងលើកុំព្យូទ័រ និងទូរស័ព្ទដៃ។
@@ -18,7 +18,7 @@
 ---
 
 ## 🚀 របៀបដាក់បញ្ចូលក្នុង GitHub (How to Upload to GitHub)
-1. ពន្លា (Extract / Unzip) ឯកសារ `GO7_Bank_System_GitHub_WebApp_v3.6.8.zip`។
+1. ពន្លា (Extract / Unzip) ឯកសារ `GO7_Bank_System_GitHub_WebApp_v3.6.9.zip`។
 2. ចូលទៅកាន់ Repository របស់អ្នកនៅលើ **GitHub** រួចចុច **Add file > Upload files**។
 3. អូសឯកសារ និងថតឯកសារទាំងអស់ (`index.html`, `manifest.json`, `sw.js`, `favicon.svg`, `favicon.ico`, និងថត `assets/`) ចូលទៅក្នុង Repository រួចចុច **Commit changes**។
 4. ចូលទៅកាន់ **Settings > Pages** ជ្រើសរើស Branch `main` រួចចុច **Save**។
