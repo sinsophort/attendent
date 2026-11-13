@@ -20,7 +20,7 @@
   <style>
     :root {
       /* កម្ពស់បាំងរបារអក្សរ Google Apps Script ខាងលើដោយស្វ័យប្រវត្តិ (Top Warning Banner Mask Offset) */
-      --gas-banner-crop: 38px;
+      --gas-banner-crop: 10px; /* កែលេខនេះ (ឧ. 18px, 22px, 24px, 28px ឬ 0px) ដើម្បីទម្លាក់ ឬរុញផ្ទាំងខាងលើ */
       --top-shield-height: 0px;
       --bg-deep: #070d19;
       --bg-navy: #0f172a;
@@ -425,7 +425,7 @@
     @media (max-width: 640px) {
       :root {
         /* លើទូរស័ព្ទដៃ របារព្រមាន Google អាចខ្ពស់ជាងកុំព្យូទ័របន្តិច */
-        --gas-banner-crop: 42px;
+        --gas-banner-crop: 10px;
       }
       .loader-card {
         padding: 30px 22px 24px 22px;
@@ -495,20 +495,27 @@
   <main class="iframe-stage">
     <iframe
       id="gasAppFrame"
-      src="https://script.google.com/macros/s/AKfycbx5YGNh_fPNAprIPHHVlh7MLVKkpb5EyKU-qezL_TRFRborcGqPAazQZKfXhSkKFpposg/exec"
+      src="https://script.google.com/macros/s/AKfycbzHdD2qdkV_3wcpic4kb0z5a01YTBHImanFEWssz5-Ssj2DjbL5iioaJdZFi5T-CW-O_Q/exec"
       title="Dash Board Report Bank GO/7 v3.6.8"
       allow="clipboard-read; clipboard-write; fullscreen; camera"
       allowfullscreen>
     </iframe>
   </main>
 
-  <!-- 4. DISCREET FLOATING CONTROL DOCK (ប៊ូតុងបញ្ជារហ័សនៅជ្រុងក្រោមស្តាំ) -->
+  <!-- 4. DISCREET FLOATING CONTROL DOCK (ប៊ូតុងកែកំពស់ផ្ទាំងខាងលើ និងបញ្ជារហ័សនៅជ្រុងក្រោមស្តាំ) -->
   <div id="floatingDock" class="floating-dock dock-collapsed" title="System Display Controls">
-    <button type="button" class="dock-btn" onclick="toggleDockExpand()" title="Toggle Quick Controls">
+    <button type="button" class="dock-btn" onclick="toggleDockExpand()" title="ចុចដើម្បីបើកប៊ូតុងកែកំពស់ផ្ទាំងខាងលើ">
       🛡️ <span>GO/7</span>
     </button>
+    <button type="button" class="dock-btn dock-extra" onclick="adjustCropOffset(-2)" title="ទម្លាក់ផ្ទាំងចុះក្រោម (Lower View)">
+      ⬇ ទម្លាក់ចុះ
+    </button>
+    <span id="cropPxBadge" class="dock-btn dock-extra" style="background:#0f172a; color:#38bdf8; cursor:default;">10px</span>
+    <button type="button" class="dock-btn dock-extra" onclick="adjustCropOffset(2)" title="រុញផ្ទាំងឡើងលើ (Raise View)">
+      ⬆ រុញឡើង
+    </button>
     <button type="button" class="dock-btn dock-extra" onclick="cycleBannerMaskMode()" id="btnMaskModeLabel" title="Switch Top Banner Mask Mode">
-      ✂️ Hide Banner: Auto Crop
+      ✂️ Mode: Auto
     </button>
     <button type="button" class="dock-btn dock-extra" onclick="reloadGasIframe()" title="Reload System">
       🔄 Reload
@@ -597,25 +604,57 @@
     // 3. SHIELD_BAR (ដាក់របារពណ៌ទឹកប៊ិចចាស់ GO/7 បាំងពីលើរបារ Google)
     // 4. CROP_OFF (បង្ហាញធម្មតា 0px ប្រសិនបើបានចុចបិទរបារ Google រួច)
     // =========================================================================
-    let currentMaskMode = localStorage.getItem('GO7_BANNER_MASK_MODE') || 'AUTO_CROP';
+    // កម្ពស់លំនាំដើម 24px (ទាបជាងមុន មិនឱ្យដាច់ផ្ទាំងខាងលើ) និងអាចចុច ⬇ / ⬆ កែតាមចិត្តពី 0px ដល់ 55px
+    const DEFAULT_CROP_PX = 10;
+    let customCropPx = parseInt(localStorage.getItem('GO7_CUSTOM_CROP_PX_10'), 10);
+    if (isNaN(customCropPx)) customCropPx = DEFAULT_CROP_PX;
+
+    let currentMaskMode = localStorage.getItem('GO7_BANNER_MASK_MODE_10') || 'AUTO_CROP';
+
+    function syncCropHeightUI() {
+      const badge = document.getElementById('cropPxBadge');
+      if (currentMaskMode === 'SHIELD_BAR') {
+        document.documentElement.style.setProperty('--gas-banner-crop', '0px');
+        if (badge) badge.textContent = 'Shield';
+      } else if (currentMaskMode === 'CROP_OFF') {
+        document.documentElement.style.setProperty('--gas-banner-crop', '0px');
+        if (badge) badge.textContent = '0px';
+      } else {
+        document.documentElement.style.setProperty('--gas-banner-crop', customCropPx + 'px');
+        if (badge) badge.textContent = customCropPx + 'px';
+      }
+    }
+
+    function adjustCropOffset(deltaPx) {
+      currentMaskMode = 'AUTO_CROP';
+      localStorage.setItem('GO7_BANNER_MASK_MODE_10', 'AUTO_CROP');
+      document.body.classList.remove('shield-bar-active', 'crop-deep-mode', 'crop-off-mode');
+      customCropPx = Math.max(0, Math.min(55, customCropPx + deltaPx));
+      localStorage.setItem('GO7_CUSTOM_CROP_PX_10', String(customCropPx));
+      syncCropHeightUI();
+    }
 
     function applyBannerMaskMode(mode) {
       currentMaskMode = mode;
-      localStorage.setItem('GO7_BANNER_MASK_MODE', mode);
+      localStorage.setItem('GO7_BANNER_MASK_MODE_10', mode);
       document.body.classList.remove('shield-bar-active', 'crop-deep-mode', 'crop-off-mode');
       const btnLbl = document.getElementById('btnMaskModeLabel');
       if (mode === 'SHIELD_BAR') {
         document.body.classList.add('shield-bar-active');
-        if (btnLbl) btnLbl.textContent = '🛡️ Mask: Brand Bar';
+        if (btnLbl) btnLbl.textContent = '🛡️ Mode: Brand Bar';
       } else if (mode === 'DEEP_CROP') {
-        document.body.classList.add('crop-deep-mode');
-        if (btnLbl) btnLbl.textContent = '✂️ Mask: Deep Crop';
+        customCropPx = 34;
+        localStorage.setItem('GO7_CUSTOM_CROP_PX_10', '34');
+        if (btnLbl) btnLbl.textContent = '✂️ Mode: 34px';
       } else if (mode === 'CROP_OFF') {
         document.body.classList.add('crop-off-mode');
-        if (btnLbl) btnLbl.textContent = '👁️ Mask: Off (0px)';
+        if (btnLbl) btnLbl.textContent = '👁️ Mode: 0px';
       } else {
-        if (btnLbl) btnLbl.textContent = '✂️ Hide Banner: Auto Crop';
+        customCropPx = DEFAULT_CROP_PX;
+        localStorage.setItem('GO7_CUSTOM_CROP_PX_10', String(customCropPx));
+        if (btnLbl) btnLbl.textContent = '✂️ Mode: Auto (' + customCropPx + 'px)';
       }
+      syncCropHeightUI();
     }
 
     function cycleBannerMaskMode() {
