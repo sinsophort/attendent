@@ -79,9 +79,67 @@
   #callView.closing .cv-btns { visibility: hidden; }
   .cv-top, .cv-btns { z-index: 2; }
   /* a video call that is not connected yet: my camera fills the screen behind the name (like Messenger) */
-  #callView.video:not(.has-remote):not(.incoming) #cvLocal { inset: 0; top: 0; right: 0; width: 100%; height: 100%; max-width: none; aspect-ratio: auto; border-radius: 0; box-shadow: none; z-index: 0; }
-  #callView.video:not(.has-remote):not(.incoming) .cv-shade { display: block; z-index: 1; }
+  #callView.video:not(.has-remote):not(.incoming):not(.group) #cvLocal { inset: 0; top: 0; right: 0; width: 100%; height: 100%; max-width: none; aspect-ratio: auto; border-radius: 0; box-shadow: none; z-index: 0; }
+  #callView.video:not(.has-remote):not(.incoming):not(.group) .cv-shade { display: block; z-index: 1; }
   @media (prefers-reduced-motion: reduce) { #callView .cv-av, #callView .cv-b span { animation: none !important; } }
+  /* 1.1.34: livelier call screen, group grid, ear mode */
+  #callView.opening { animation: cvIn .32s cubic-bezier(.2, .9, .25, 1); }
+  @keyframes cvIn { from { opacity: 0; transform: translateY(24px) scale(.98); } to { opacity: 1; transform: none; } }
+  #callView.closing { animation: cvOut 1.4s ease-in forwards; }
+  @keyframes cvOut { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+  .cv-b span { position: relative; transition: transform .16s cubic-bezier(.3, 1.6, .5, 1), background .2s, color .2s, box-shadow .2s; }
+  .cv-b:hover span { box-shadow: 0 0 0 6px rgba(255, 255, 255, .08); }
+  .cv-b:active span { transform: scale(.86); transition-duration: .06s; }
+  .cv-b span::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: rgba(255, 255, 255, .35); opacity: 0; transform: scale(.4); pointer-events: none; }
+  .cv-b:active span::after { animation: cvTap .35s ease-out; }
+  @keyframes cvTap { from { opacity: .6; transform: scale(.4); } to { opacity: 0; transform: scale(1.5); } }
+  .cv-b.red span { box-shadow: 0 6px 20px rgba(239, 68, 68, .45); } .cv-b.green span { box-shadow: 0 6px 22px rgba(34, 197, 94, .55); }
+  #callView.incoming .cv-b.green span::before, #callView.incoming .cv-b.green span::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(34, 197, 94, .7); animation: cvHalo 1.6s ease-out infinite; opacity: 1; transform: none; background: none; }
+  #callView.incoming .cv-b.green span::after { animation-delay: .8s; }
+  @keyframes cvHalo { from { transform: scale(1); opacity: .9; } to { transform: scale(1.8); opacity: 0; } }
+  #callView.incoming .cv-b.green svg { animation: cvRing 1.3s ease-in-out infinite; }
+  #callView.incoming .cv-b.green span { animation: none; }
+  #callView.live .cv-av { animation: none; box-shadow: 0 0 0 6px rgba(34, 197, 94, .25), 0 18px 40px rgba(0, 0, 0, .4); }
+  .cv-peer { margin: 6px 0 0; font-size: 13.5px; opacity: .85; min-height: 18px; }
+  #cvAudios { display: none; }
+  .cv-grid { display: none; }
+  #callView.group .cv-grid { position: relative; z-index: 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 520px; flex: 1; margin: 14px 0; align-content: center; }
+  #callView.group .cv-grid[data-n="1"] { grid-template-columns: 1fr; }
+  #callView.group #cvLocal { width: 22vw; max-width: 110px; }
+  #callView.group .cv-av { width: 72px; height: 72px; font-size: 26px; margin-bottom: 8px; }
+  #callView.group #cvName { font-size: 20px; }
+  .cv-tile { position: relative; aspect-ratio: 3 / 4; border-radius: 16px; overflow: hidden; background: rgba(255, 255, 255, .1); display: grid; place-items: center; animation: cvIn .3s ease-out; }
+  .cv-tile video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+  .cv-tile.has-video video { display: block; } .cv-tile.has-video .cv-ini { display: none; }
+  .cv-ini { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 24px; font-weight: 800; background: rgba(255, 255, 255, .18); }
+  .cv-tile b { position: absolute; left: 8px; bottom: 8px; font-size: 13px; background: rgba(0, 0, 0, .45); padding: 2px 8px; border-radius: 99px; max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cv-tile i { position: absolute; right: 8px; top: 8px; font-style: normal; font-size: 13px; }
+  #cvDark { position: absolute; inset: 0; z-index: 5; background: #000; color: rgba(255, 255, 255, .35); display: flex; align-items: flex-end; justify-content: center; padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px)); font-size: 13px; }
+  #cvDark.hidden { display: none; }
+  .cv-tile { transition: box-shadow .15s; }
+  .cv-tile.speaking { box-shadow: inset 0 0 0 3px #22c55e, 0 0 18px rgba(34, 197, 94, .45); }
+  /* 1.1.35: a chat video, full screen, playing while it downloads */
+  #vpView { position: fixed; inset: 0; z-index: 6; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; touch-action: pan-x; }
+  #vpView.hidden { display: none; }
+  #vpView.opening { animation: vpIn .22s ease-out; }
+  #vpView.closing { animation: vpOut .2s ease-in forwards; }
+  @keyframes vpIn { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+  @keyframes vpOut { to { opacity: 0; transform: translateY(18%) scale(.9); } }
+  #vpVid { width: 100%; height: 100%; max-height: 100vh; object-fit: contain; background: #000; }
+  .vp-top { position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; padding: calc(8px + env(safe-area-inset-top, 0px)) 10px 18px; background: linear-gradient(rgba(0, 0, 0, .65), transparent); transition: opacity .2s; }
+  #vpView.bare .vp-top, #vpView.bare .vp-cap { opacity: 0; pointer-events: none; }
+  .vp-b { width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .14); color: #fff; font-size: 20px; display: grid; place-items: center; cursor: pointer; flex: 0 0 auto; -webkit-tap-highlight-color: transparent; }
+  .vp-b:active { transform: scale(.9); background: rgba(255, 255, 255, .28); }
+  .vp-b svg { width: 22px; height: 22px; }
+  .vp-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .vp-who b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .vp-who small { font-size: 12px; opacity: .75; }
+  .vp-cap { position: absolute; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); z-index: 2; text-align: center; font-size: 14px; text-shadow: 0 1px 3px #000; pointer-events: none; transition: opacity .2s; }
+  .vp-cap.hidden { display: none; }
+  #vpLoad { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; font-size: 13px; text-shadow: 0 1px 3px #000; }
+  #vpLoad.hidden { display: none; }
+  #vpLoad i { width: 42px; height: 42px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .25); border-top-color: #fff; animation: vpSpin .8s linear infinite; }
+  @keyframes vpSpin { to { transform: rotate(360deg); } }
+
 </style>
 </head>
 <body>
@@ -121,16 +179,26 @@
   <div class="acts"><button class="btn" type="button" id="twaOk">OK</button> <button class="btn ghost" type="button" id="twaNever">Don't show again</button></div>
 </div></div>
 <div id="saveSheet" class="layer hidden" style="z-index:8"><div class="box">
-  <div class="bio-ico"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M5 20h14v-2H5v2zm7-18-5.5 5.5 1.4 1.4L11 5.8V16h2V5.8l3.1 3.1 1.4-1.4L12 2z" transform="rotate(180 12 11)"/></svg></div>
+  <div class="bio-ico"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M5 20h14v-2H5v2zm7-2-6-6 1.4-1.4 3.6 3.6V3h2v11.2l3.6-3.6L18 12l-6 6z"/></svg></div>
   <h1 id="saveT">Save</h1><p>Tap Save, then choose “Save Image” or “Save Video” — it goes to Photos.</p>
   <button class="btn" type="button" id="saveGo">Save</button><br>
   <button class="btn ghost" type="button" id="saveNo">Cancel</button>
 </div></div>
 <div id="callView" class="hidden" role="dialog" aria-modal="true" aria-label="Call">
-  <video id="cvRemote" playsinline autoplay></video><audio id="cvAudio" autoplay playsinline></audio><div class="cv-shade"></div>
-  <div class="cv-top"><div class="cv-av" id="cvAv"></div><h2 id="cvName"></h2><p id="cvSt"></p><p id="cvTime" class="cv-time"></p></div>
+  <video id="cvRemote" playsinline autoplay muted></video><audio id="cvAudio" autoplay playsinline></audio><div id="cvAudios"></div><div class="cv-shade"></div>
+  <div class="cv-top"><div class="cv-av" id="cvAv"></div><h2 id="cvName"></h2><p id="cvSt"></p><p id="cvTime" class="cv-time"></p><p class="cv-peer" id="cvPeer"></p></div>
+  <div class="cv-grid" id="cvGrid"></div>
   <video id="cvLocal" playsinline autoplay muted></video>
   <div class="cv-btns" id="cvBtns"></div>
+  <div id="cvDark" class="hidden"></div>
+</div>
+<div id="vpView" class="hidden" role="dialog" aria-modal="true" aria-label="Video">
+  <video id="vpVid" playsinline controls autoplay preload="auto"></video>
+  <div id="vpLoad" class="hidden"><i></i><span id="vpLoadT"></span></div>
+  <div class="vp-top"><button type="button" class="vp-b" id="vpX" aria-label="Close">✕</button><span class="vp-who"><b id="vpT"></b><small id="vpS"></small></span>
+    <button type="button" class="vp-b" id="vpSave" aria-label="Save"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 20h14v-2H5v2zm7-2-6-6 1.4-1.4 3.6 3.6V3h2v11.2l3.6-3.6L18 12l-6 6z"/></svg></button>
+    <button type="button" class="vp-b" id="vpFs" aria-label="Full screen"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button></div>
+  <div class="vp-cap hidden" id="vpCap"></div>
 </div>
 <div id="iosBar" class="bar hidden"><span>📲 To install: tap Share ⬆️ → Add to Home Screen ➕</span><button type="button" class="x" data-x="iosBar" title="Close">✕</button></div>
 
@@ -331,7 +399,10 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     GO_SEEN[key] = Date.now();
     sendGo(go, msg);
   }
-  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'tem-go') goOnce(e.data.go, e.data.msg); });
+  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'tem-go') goOnce(e.data.go, e.data.msg);
+    if (e.data && e.data.type === 'tem-vs-req' && e.ports && e.ports[0]) vpServe(e.data, e.ports[0]);
+  });
   function goFromCache() {
     try {
       if (!window.caches) return;
@@ -387,8 +458,17 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     /* calls */
     if (e.data.type === 'tem-call-open') cvOpen(e.source, e.origin, e.data);
     if (e.data.type === 'tem-call-go' && CV) cvGo(e.data);
-    if (e.data.type === 'tem-call-answer' && CV) cvAnswer(e.data.sdp);
+    if (e.data.type === 'tem-call-answer' && CV) cvAnswer(e.data.sdp, e.data.peer);
+    /* group calls: one connection per person */
+    if (e.data.type === 'tem-call-offer-to' && CV) cvOffer(String(e.data.peer || '').slice(0, 40), String(e.data.name || '').slice(0, 60), e.data.ice, e.data.ini);
+    if (e.data.type === 'tem-call-answer-to' && CV) cvAnswerTo(String(e.data.peer || '').slice(0, 40), String(e.data.name || '').slice(0, 60), e.data.ice, e.data.offer, e.data.ini);
+    if (e.data.type === 'tem-call-peer-gone' && CV) cvPeerGone(String(e.data.peer || ''));
     if (e.data.type === 'tem-call-close' && CV) cvStop(String(e.data.text || '').slice(0, 140), !e.data.text);
+    /* a chat video: full screen here, playing while it downloads */
+    if (e.data.type === 'tem-video') vpOpen(e.source, e.origin, e.data);
+    if (e.data.type === 'tem-vr-res') vpRes(e.data);
+    if (e.data.type === 'tem-vblob-prog' && VP && e.data.id === VP.id) vpProg(Number(e.data.p) || 0);
+    if (e.data.type === 'tem-vblob-res' && VP && e.data.id === VP.id) vpBlobRes(e.data);
     if (e.data.type === 'tem-badge') setBadge(e.data.count);
     if (e.data.type === 'tem-notify') localNotify(String(e.data.title || '').slice(0, 80), String(e.data.body || '').slice(0, 200), e.data.go);
     if (e.data.type === 'tem-push-config' && e.data.config && typeof e.data.config === 'object') {
@@ -685,9 +765,10 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   }
   function micMeterStop() { clearInterval(MIC.meter); MIC.meter = null; try { if (MIC.ac) MIC.ac.close(); } catch (e) {} MIC.ac = null; }
 
-  /* ===================== 1.1.33: voice and video calls (WebRTC) =====================
+  /* ===================== voice and video calls (WebRTC) — 1.1.34 =====================
      The app (inside Google's frame) cannot use the camera or microphone, so the call runs here.
-     The app passes the call descriptions through its server; the two phones then talk directly. */
+     The app passes the call descriptions through its server; the phones then talk directly.
+     One person (peer 'p') or a group (one connection per person, up to 6). */
   var CV = null;
   var CI = {
     mic: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-2.1A7 7 0 0 0 19 12h-2z"/></svg>',
@@ -696,36 +777,73 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     camOff: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6.5l-4 4V7c0-.6-.4-1-1-1H9.8L21 17.2V6.5zM3.3 2 2 3.3 4.7 6H4c-.6 0-1 .4-1 1v10c0 .6.4 1 1 1h12c.2 0 .4-.1.5-.2l3.2 3.2 1.3-1.3L3.3 2z"/></svg>',
     flip: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 5h-3.2L15 3H9L7.2 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-5 11.5V14H9v2.5L5.5 13 9 9.5V12h6V9.5l3.5 3.5-3.5 3.5z"/></svg>',
     end: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-1.6 0-3.2.3-4.6.7v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.6 1.8-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3L.3 13c-.2-.2-.3-.4-.3-.7 0-.3.1-.5.3-.7A16.9 16.9 0 0 1 12 7c4.5 0 8.6 1.7 11.7 4.6.2.2.3.4.3.7 0 .3-.1.5-.3.7l-2.5 2.5c-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3-.7-.7-1.6-1.3-2.6-1.8-.3-.2-.6-.5-.6-.9V9.7C15.2 9.3 13.6 9 12 9z"/></svg>',
-    phone: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>'
+    phone: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>',
+    ear: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 20c-.3 0-.6-.1-.8-.2-.7-.4-1.2-.9-1.7-2.4-.5-1.6-1.5-2.4-2.4-3.1-.8-.6-1.6-1.3-2.3-2.5-.5-.9-.8-1.9-.8-2.8 0-2.8 2.2-5 5-5s5 2.2 5 5h2c0-3.9-3.1-7-7-7S7 4.1 7 8c0 1.3.4 2.6 1 3.8.9 1.6 1.9 2.4 2.8 3.1.8.6 1.4 1.1 1.7 2.1.6 1.8 1.4 2.8 2.7 3.5.6.3 1.2.5 1.8.5 2.2 0 4-1.8 4-4h-2c0 1.1-.9 2-2 2zM7.6 2.1 6.2.7A10 10 0 0 0 3 8a10 10 0 0 0 3.2 7.3l1.4-1.4A8 8 0 0 1 5 8c0-2.3 1-4.4 2.6-5.9zM11.5 8a2.5 2.5 0 1 0 5 0 2.5 2.5 0 0 0-5 0z"/></svg>'
   };
   var CT0 = { calling: 'Calling…', ringing: 'Ringing…', connecting: 'Connecting…', reconnecting: 'Reconnecting…', inVoice: 'Incoming voice call', inVideo: 'Incoming video call',
-    accept: 'Accept', decline: 'Decline', end: 'End', mute: 'Mute', unmute: 'Unmute', cam: 'Camera', flip: 'Flip', ended: 'Call ended', declined: 'Declined', busy: 'Busy',
-    noanswer: 'No answer', failed: 'The call could not connect', nomedia: 'Allow the microphone (and camera) for this app', missed: 'Missed call' };
-  function ct(k) { return (CV && CV.txt && CV.txt[k]) || CT0[k] || k; }
+    accept: 'Accept', decline: 'Decline', end: 'End', mute: 'Mute', unmute: 'Unmute', cam: 'Camera', flip: 'Flip', ear: 'Ear', earHint: 'Tap twice to light the screen', ended: 'Call ended', declined: 'Declined', busy: 'Busy',
+    noanswer: 'No answer', failed: 'The call could not connect', nomedia: 'Allow the microphone (and camera) for this app', missed: 'Missed call', muted: 'Muted', camOff: 'Camera off', people: '{0} in the call', inGroup: 'Group call', join: 'Join' };
+  function ct(k, a) { var t = (CV && CV.txt && CV.txt[k]) || CT0[k] || k; return a === undefined ? t : String(t).replace('{0}', a); }
   function cvSend(m) { try { if (CV && CV.src) CV.src.postMessage(m, CV.org); } catch (e) {} }
   function cvBtn(id, ico, label, cls) { return '<button type="button" class="cv-b ' + (cls || '') + '" id="' + id + '"><span>' + ico + '</span><small>' + label + '</small></button>'; }
   function cvStatus(t) { var el = $('cvSt'); if (el) el.textContent = t; }
+  function cvPeerList() { return CV ? Object.keys(CV.peers).map(function (k) { return CV.peers[k]; }) : []; }
   function cvDraw() {
     if (!CV) return;
     var v = $('callView'), live = CV.st === 'live';
     v.classList.toggle('video', !!CV.video); v.classList.toggle('live', live); v.classList.toggle('incoming', CV.role === 'in' && !CV.accepted);
-    v.classList.toggle('has-remote', !!CV.remoteVideo);
+    v.classList.toggle('group', !!CV.group);
+    v.classList.toggle('has-remote', !CV.group && !!(CV.peers.p && CV.peers.p.hasVideo));
     var b = $('cvBtns');
-    if (CV.role === 'in' && !CV.accepted) b.innerHTML = cvBtn('cvNo', CI.end, ct('decline'), 'red') + cvBtn('cvYes', CV.video ? CI.cam : CI.phone, ct('accept'), 'green');
+    if (CV.role === 'in' && !CV.accepted) b.innerHTML = cvBtn('cvNo', CI.end, ct('decline'), 'red') + cvBtn('cvYes', CV.video ? CI.cam : CI.phone, ct(CV.group ? 'join' : 'accept'), 'green');
     else b.innerHTML = cvBtn('cvMute', CV.muted ? CI.micOff : CI.mic, ct(CV.muted ? 'unmute' : 'mute'), CV.muted ? 'on' : '') +
-      (CV.video ? cvBtn('cvCam', CV.camOff ? CI.camOff : CI.cam, ct('cam'), CV.camOff ? 'on' : '') + cvBtn('cvFlip', CI.flip, ct('flip')) : '') + cvBtn('cvEnd', CI.end, ct('end'), 'red');
+      (CV.video ? cvBtn('cvCam', CV.camOff ? CI.camOff : CI.cam, ct('cam'), CV.camOff ? 'on' : '') + cvBtn('cvFlip', CI.flip, ct('flip')) : cvBtn('cvEar', CI.ear, ct('ear'))) + cvBtn('cvEnd', CI.end, ct('end'), 'red');
     var on = function (id, f) { var x = $(id); if (x) x.onclick = f; };
     on('cvNo', function () { cvSend({ type: 'tem-call-decline' }); cvStop(ct('declined')); });
     on('cvYes', function () { cvAccept(); });
-    on('cvEnd', function () { cvSend({ type: 'tem-call-hangup' }); cvStop(ct('ended')); });
-    on('cvMute', function () { CV.muted = !CV.muted; cvTracks('audio', !CV.muted); cvDraw(); });
-    on('cvCam', function () { CV.camOff = !CV.camOff; cvTracks('video', !CV.camOff); $('cvLocal').classList.toggle('off', CV.camOff); cvDraw(); });
+    on('cvEnd', function () { cvBye(); cvSend({ type: 'tem-call-hangup' }); cvStop(ct('ended')); });
+    on('cvMute', function () { CV.muted = !CV.muted; cvTracks('audio', !CV.muted); cvCtlAll('mute:' + (CV.muted ? 1 : 0)); cvDraw(); });
+    on('cvCam', function () { CV.camOff = !CV.camOff; cvTracks('video', !CV.camOff); $('cvLocal').classList.toggle('off', CV.camOff); cvCtlAll('cam:' + (CV.camOff ? 0 : 1)); cvDraw(); });
     on('cvFlip', function () { cvFlip(); });
+    on('cvEar', function () { var dk = $('cvDark'); dk.textContent = ct('earHint'); dk.classList.remove('hidden'); });
+    cvPeerUi();
+  }
+  /* the other person's state (muted / camera off) and, in a group, everyone in the call */
+  function cvPeerUi() {
+    if (!CV) return;
+    var ps = cvPeerList(), el = $('cvPeer');
+    if (!CV.group) {
+      var p = CV.peers.p, bits = [];
+      if (p && p.muted) bits.push('🔇 ' + ct('muted'));
+      if (p && CV.video && p.camOff) bits.push('📷 ' + ct('camOff'));
+      el.textContent = bits.join(' • ');
+      return;
+    }
+    if (CV.st === 'live') cvStatus(ct('people', ps.filter(function (x) { return x.connected; }).length + 1));
+    var g = $('cvGrid');
+    ps.forEach(function (p) {
+      var t = $('cvt_' + p.id);
+      if (!t) {
+        t = document.createElement('div'); t.className = 'cv-tile'; t.id = 'cvt_' + p.id;
+        t.innerHTML = '<video playsinline autoplay muted></video><span class="cv-ini"></span><b></b><i></i>';
+        g.appendChild(t);
+      }
+      t.querySelector('.cv-ini').textContent = String(p.ini || p.name || '?').slice(0, 2).toUpperCase();
+      t.querySelector('b').textContent = p.name || '';
+      t.querySelector('i').textContent = (p.muted ? '🔇' : '') + (p.connected ? '' : ' …');
+      t.classList.toggle('has-video', !!p.hasVideo && !p.camOff);
+    });
+    Array.prototype.forEach.call(g.children, function (t) { if (!CV.peers[t.id.slice(4)]) t.remove(); });
+    g.setAttribute('data-n', String(ps.length));
   }
   function cvTracks(kind, en) { if (CV && CV.local) CV.local.getTracks().forEach(function (t) { if (t.kind === kind) t.enabled = en; }); }
-  /* ringing sounds: a soft two-tone ring for the person called, a ring-back tone for the caller */
+  function cvCtlAll(msg) { cvPeerList().forEach(function (p) { try { if (p.dc && p.dc.readyState === 'open') p.dc.send(msg); } catch (e) {} }); }
+  function cvBye() { cvCtlAll('bye'); }
+  /* ringing sounds here (Android); on iPhone the app itself rings (it was allowed to play sound by your taps) */
   function cvTone(kind) {
     cvToneStop();
+    if (kind === 'in' && navigator.vibrate) { try { navigator.vibrate([400, 250, 400]); } catch (e) {} CV.vib = setInterval(function () { try { navigator.vibrate([400, 250, 400]); } catch (e) {} }, 2000); }
+    if (CV.ringApp) return;
     try {
       var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
       var ac = CV.ac || (CV.ac = new AC());
@@ -733,34 +851,37 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       var beep = function () {
         if (!CV || !CV.tone) return;
         var t = ac.currentTime, g = ac.createGain(); g.connect(ac.destination);
-        var f = kind === 'in' ? [880, 660] : [425, 425];
-        f.forEach(function (hz, i) {
+        var notes = kind === 'in' ? [784, 988, 1175, 988] : [425];
+        notes.forEach(function (hz, i) {
           var o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = hz; o.connect(g);
-          var s = t + (kind === 'in' ? i * 0.35 : 0), d = kind === 'in' ? 0.3 : 1;
-          o.start(s); o.stop(s + d);
+          var s = t + (kind === 'in' ? i * 0.16 : 0); o.start(s); o.stop(s + (kind === 'in' ? 0.15 : 1));
         });
-        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(kind === 'in' ? 0.25 : 0.12, t + 0.03); g.gain.setValueAtTime(kind === 'in' ? 0.25 : 0.12, t + (kind === 'in' ? 0.62 : 0.95)); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'in' ? 0.7 : 1.05));
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(kind === 'in' ? 0.22 : 0.1, t + 0.02);
+        g.gain.setValueAtTime(kind === 'in' ? 0.22 : 0.1, t + (kind === 'in' ? 0.62 : 0.95)); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'in' ? 0.7 : 1.05));
       };
-      CV.tone = setInterval(beep, kind === 'in' ? 2000 : 3000); beep();
-      if (kind === 'in' && navigator.vibrate) { try { navigator.vibrate([400, 250, 400]); } catch (e) {} CV.vib = setInterval(function () { try { navigator.vibrate([400, 250, 400]); } catch (e) {} }, 2000); }
+      CV.tone = setInterval(beep, kind === 'in' ? 1600 : 3000); beep();
     } catch (e) { /* silent ring */ }
   }
   function cvToneStop() { if (!CV) return; clearInterval(CV.tone); CV.tone = null; clearInterval(CV.vib); CV.vib = null; try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {} }
   function cvOpen(src, org, d) {
+    try { if (VP) $('vpVid').pause(); } catch (e) {}
     var w0 = CV ? CV.wake0 : WAKE.want;
     if (CV) cvStop('', true);
     WAKE.want = w0;
-    CV = { src: src, org: org, role: d.role === 'in' ? 'in' : 'out', video: !!d.video, txt: d.txt && typeof d.txt === 'object' ? d.txt : {}, st: 'ring', accepted: d.role !== 'in', t0: 0 };
+    CV = { src: src, org: org, role: d.role === 'in' ? 'in' : 'out', video: !!d.video, group: !!d.group, txt: d.txt && typeof d.txt === 'object' ? d.txt : {}, st: 'ring',
+      accepted: d.role !== 'in', t0: 0, peers: {}, ringApp: !!d.ringApp };
     cvSend({ type: 'tem-call-ack' });
     var av = $('cvAv'), photo = /^data:image\/(jpeg|png|webp);base64,/.test(String(d.photo || '')) ? d.photo : '';
     av.style.background = /^#[0-9a-f]{3,8}$/i.test(String(d.color || '')) ? d.color : '#2563eb';
     av.innerHTML = photo ? '<img alt="" src="' + photo + '">' : '';
     if (!photo) av.textContent = String(d.ini || '?').slice(0, 3);
     $('cvName').textContent = String(d.name || '').slice(0, 60);
-    cvStatus(CV.role === 'in' ? ct(CV.video ? 'inVideo' : 'inVoice') : ct('calling'));
-    $('cvTime').textContent = '';
+    cvStatus(CV.role === 'in' ? (CV.group ? ct('inGroup') : ct(CV.video ? 'inVideo' : 'inVoice')) : ct('calling'));
+    $('cvTime').textContent = ''; $('cvPeer').textContent = ''; $('cvGrid').innerHTML = '';
     $('cvLocal').classList.remove('off');
-    $('callView').classList.remove('hidden', 'closing');
+    $('cvDark').classList.add('hidden');
+    var v = $('callView');
+    v.classList.remove('hidden', 'closing', 'opening'); void v.offsetWidth; v.classList.add('opening');
     cvDraw();
     CV.wake0 = WAKE.want; WAKE.want = true; wakeApply();
     cvTone(CV.role);
@@ -773,65 +894,157 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { c.mediaP = Promise.reject(new Error('media')); return c.mediaP; }
     c.facing = 'user';
     c.mediaP = navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      /* the phone's echo and noise cancelling, one channel (clearer speech, less hiss) */
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: { ideal: 1 } },
       video: c.video ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } } : false
     }).then(function (st) {
       if (CV !== c) { st.getTracks().forEach(function (t) { t.stop(); }); throw new Error('gone'); }
       c.local = st;
+      st.getAudioTracks().forEach(function (t) { try { t.contentHint = 'speech'; } catch (e) {} });
       if (c.video) { var lv = $('cvLocal'); lv.srcObject = st; lv.play().catch(function () {}); }
       return st;
     });
     c.mediaP.catch(function (e) { if (CV === c && e && e.message !== 'gone') { cvSend({ type: 'tem-call-fail', err: 'media' }); cvStop(ct('nomedia')); } });
     return c.mediaP;
   }
-  function cvPc(ice) {
-    var c = CV, servers = (Array.isArray(ice) ? ice : []).filter(function (s) { return s && s.urls; }).slice(0, 6);
-    var pc = new RTCPeerConnection({ iceServers: servers, bundlePolicy: 'max-bundle' });
-    c.pc = pc;
-    c.local.getTracks().forEach(function (t) { pc.addTrack(t, c.local); });
-    pc.ontrack = function (e) {
-      if (CV !== c) return;
+  function cvNewPeer(id, name, ice, ini) {
+    var c = CV, old = c.peers[id];
+    if (old) cvPeerGone(id, true);
+    var servers = (Array.isArray(ice) ? ice : []).filter(function (s) { return s && s.urls; }).slice(0, 6);
+    var p = { id: id, name: name || '', ini: ini || '', pc: new RTCPeerConnection({ iceServers: servers, bundlePolicy: 'max-bundle' }), connected: false, ice: servers };
+    c.peers[id] = p;
+    c.local.getTracks().forEach(function (t) { p.pc.addTrack(t, c.local); });
+    /* a small direct line next to the call: "I hung up", "muted", "camera off" arrive at once (no server round trip) */
+    try {
+      p.dc = p.pc.createDataChannel('ctl', { negotiated: true, id: 0 }); p.dc.onmessage = function (e) { cvCtl(p, String(e.data || '')); };
+      p.dc.onopen = function () {
+        if (c.muted) p.dc.send('mute:1'); if (c.video && c.camOff) p.dc.send('cam:0');
+        /* this line opens on both phones at the same moment: the call time starts here, and the caller sends
+           its time once more so both screens show the same seconds */
+        if (!c.group && CV === c) {
+          cvClock(Date.now());
+          if (c.role === 'out') setTimeout(function () { try { if (CV === c && p.dc.readyState === 'open') p.dc.send('clk:' + (Date.now() - c.t0)); } catch (er) {} }, 700);
+        }
+      };
+    } catch (e) { p.dc = null; }
+    p.pc.ontrack = function (e) {
+      if (CV !== c || c.peers[id] !== p) return;
       var st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
-      if (e.track.kind === 'video') { c.remoteVideo = true; var rv = $('cvRemote'); rv.srcObject = st; rv.play().catch(function () {}); cvDraw(); }
-      var au = $('cvAudio'); if (au.srcObject !== st) { au.srcObject = st; au.play().catch(function () {}); }
+      if (e.track.kind === 'video') {
+        p.hasVideo = true;
+        /* the picture only — the sound plays once, from its own player (playing it twice made an echo / hiss) */
+        var rv = c.group ? (function () { cvPeerUi(); var t = $('cvt_' + id); return t && t.querySelector('video'); })() : $('cvRemote');
+        if (rv) { rv.muted = true; rv.srcObject = st; rv.play().catch(function () {}); }
+        cvDraw();
+      } else {
+        var au = c.group ? cvPeerAudio(id) : $('cvAudio');
+        if (au.srcObject !== st) { au.srcObject = st; au.play().catch(function () {}); if (c.group) cvSpeakWatch(id, st); }
+      }
     };
-    pc.onconnectionstatechange = function () {
-      if (CV !== c) return;
-      var s = pc.connectionState;
-      if (s === 'connected') cvLive();
-      else if (s === 'disconnected') cvStatus(ct('reconnecting'));
-      else if (s === 'failed') { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); }
+    p.pc.onconnectionstatechange = function () {
+      if (CV !== c || c.peers[id] !== p) return;
+      var s = p.pc.connectionState;
+      if (s === 'connected') { p.connected = true; cvLive(); cvPeerUi(); }
+      else if (s === 'disconnected') { if (!c.group) cvStatus(ct('reconnecting')); p.connected = false; cvPeerUi(); }
+      else if (s === 'failed') {
+        if (!c.group) { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); }
+        else { cvSend({ type: 'tem-call-peer-fail', peer: id }); cvPeerGone(id); }
+      }
     };
-    pc.oniceconnectionstatechange = function () { if (CV === c && (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed')) cvLive(); };
-    return pc;
+    p.pc.oniceconnectionstatechange = function () { if (CV === c && c.peers[id] === p && (p.pc.iceConnectionState === 'connected' || p.pc.iceConnectionState === 'completed')) { p.connected = true; cvLive(); cvPeerUi(); } };
+    return p;
   }
-  /* no trickle: wait until the phone has found its addresses (at most 3 s), then send one description */
-  function cvGather(pc) {
+  function cvSpeakWatch(id, stream) {
+    var c = CV; if (!c || !c.group) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      var ac = c.mac || (c.mac = new AC());
+      if (ac.state === 'suspended' && ac.resume) ac.resume().catch(function () {});
+      var p = c.peers[id]; if (!p) return;
+      var an = ac.createAnalyser(); an.fftSize = 512; ac.createMediaStreamSource(stream).connect(an); p.an = an;
+      if (c.spk) return;
+      var buf = new Uint8Array(512);
+      c.spk = setInterval(function () {
+        if (CV !== c) return;
+        cvPeerList().forEach(function (q) {
+          if (!q.an) return;
+          q.an.getByteTimeDomainData(buf);
+          var mx = 0; for (var i = 0; i < buf.length; i += 2) mx = Math.max(mx, Math.abs(buf[i] - 128));
+          q.lvl = Math.max(mx, (q.lvl || 0) * 0.6);
+          var t = $('cvt_' + q.id); if (t) t.classList.toggle('speaking', q.lvl > 9 && !q.muted);
+        });
+      }, 160);
+    } catch (e) { /* no ring: the call still works */ }
+  }
+  function cvPeerAudio(id) {
+    var a = $('cva_' + id);
+    if (!a) { a = document.createElement('audio'); a.id = 'cva_' + id; a.autoplay = true; a.setAttribute('playsinline', ''); $('cvAudios').appendChild(a); }
+    return a;
+  }
+  function cvCtl(p, m) {
+    var c = CV; if (!c) return;
+    if (m === 'bye') {
+      if (!c.group) { cvSend({ type: 'tem-call-remote-end' }); cvStop(ct('ended')); }
+      else { cvSend({ type: 'tem-call-peer-left', peer: p.id }); cvPeerGone(p.id); }
+      return;
+    }
+    var k = m.split(':');
+    if (k[0] === 'clk' && !c.group && c.role === 'in') { var ms = Number(k[1]); if (ms >= 0 && ms < 600000) cvClock(Date.now() - ms); return; }
+    if (k[0] === 'mute') p.muted = k[1] === '1';
+    if (k[0] === 'cam') p.camOff = k[1] === '0';
+    cvPeerUi();
+  }
+  function cvPeerGone(id, quiet) {
+    var c = CV; if (!c) return;
+    var p = c.peers[id]; if (!p) return;
+    delete c.peers[id];
+    try { p.pc.close(); } catch (e) {}
+    var a = $('cva_' + id); if (a) { a.srcObject = null; a.remove(); }
+    var t = $('cvt_' + id); if (t) t.remove();
+    if (!quiet) cvPeerUi();
+  }
+  /* no trickle: wait until the phone has found its addresses, then send one description.
+     It stops early once the useful addresses are there (a relay, or the public address when there is no relay) */
+  function cvGather(pc, ice) {
+    var turn = (ice || []).some(function (s) { return [].concat(s.urls).some(function (u) { return /^turns?:/.test(String(u)); }); });
     return new Promise(function (ok) {
       if (pc.iceGatheringState === 'complete') return ok();
-      var t = setTimeout(ok, 3000);
-      pc.addEventListener('icegatheringstatechange', function () { if (pc.iceGatheringState === 'complete') { clearTimeout(t); ok(); } });
+      var done = false, early = null, fin = function () { if (!done) { done = true; clearTimeout(cap); clearTimeout(early); ok(); } };
+      var cap = setTimeout(fin, turn ? 2500 : 1800);
+      pc.addEventListener('icecandidate', function (e) {
+        if (!e.candidate) return fin();
+        var typ = e.candidate.type || (/ typ (\w+)/.exec(e.candidate.candidate || '') || [])[1];
+        if (typ === 'relay') { clearTimeout(early); early = setTimeout(fin, 250); }
+        else if (typ === 'srflx' && !turn && !early) early = setTimeout(fin, 350);
+      });
+      pc.addEventListener('icegatheringstatechange', function () { if (pc.iceGatheringState === 'complete') fin(); });
     });
+  }
+  function cvFail(c, e) { if (CV === c && e && e.message !== 'media' && e.message !== 'gone') { if (c.group) return; cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); } }
+  /* make an offer to one person (1:1 caller, or a group member who joins later than me) */
+  function cvOffer(peer, name, ice, ini) {
+    var c = CV; if (!c) return;
+    cvMedia().then(function () {
+      var p = cvNewPeer(peer, name, ice, ini);
+      return p.pc.createOffer().then(function (o) { return p.pc.setLocalDescription(o); }).then(function () { return cvGather(p.pc, p.ice); })
+        .then(function () { if (CV === c && c.peers[peer] === p) cvSend({ type: 'tem-call-sig', peer: peer, kind: 'offer', sdp: p.pc.localDescription.sdp }); });
+    }).catch(function (e) { cvFail(c, e); });
+  }
+  function cvAnswerTo(peer, name, ice, offer, ini) {
+    var c = CV; if (!c) return;
+    cvMedia().then(function () {
+      var p = cvNewPeer(peer, name, ice, ini);
+      return p.pc.setRemoteDescription({ type: 'offer', sdp: String(offer || '') }).then(function () { return p.pc.createAnswer(); })
+        .then(function (a) { return p.pc.setLocalDescription(a); }).then(function () { return cvGather(p.pc, p.ice); })
+        .then(function () { if (CV === c && c.peers[peer] === p) cvSend({ type: 'tem-call-sig', peer: peer, kind: 'answer', sdp: p.pc.localDescription.sdp }); });
+    }).catch(function (e) { cvFail(c, e); });
   }
   function cvGo(d) {
     var c = CV; if (!c) return;
     c.cid = String(d.cid || '');
-    if (c.role === 'out') {
-      cvStatus(ct('ringing'));
-      cvMedia().then(function () {
-        var pc = cvPc(d.ice);
-        return pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }).then(function () { return cvGather(pc); })
-          .then(function () { if (CV === c) cvSend({ type: 'tem-call-sig', kind: 'offer', sdp: pc.localDescription.sdp }); });
-      }).catch(function (e) { if (CV === c && e && e.message !== 'media' && e.message !== 'gone') { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); } });
-    } else {
-      cvStatus(ct('connecting'));
-      cvMedia().then(function () {
-        var pc = cvPc(d.ice);
-        return pc.setRemoteDescription({ type: 'offer', sdp: String(d.offer || '') }).then(function () { return pc.createAnswer(); })
-          .then(function (a) { return pc.setLocalDescription(a); }).then(function () { return cvGather(pc); })
-          .then(function () { if (CV === c) cvSend({ type: 'tem-call-sig', kind: 'answer', sdp: pc.localDescription.sdp }); });
-      }).catch(function (e) { if (CV === c && e && e.message !== 'media' && e.message !== 'gone') { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); } });
-    }
+    if (c.group) { cvStatus(ct('connecting')); cvMedia().then(function () { if (CV === c && !c.t0) cvLive(); }).catch(function () {}); return; }
+    if (c.role === 'out') { cvStatus(ct('ringing')); cvOffer('p', '', d.ice); }
+    else { cvStatus(ct('connecting')); cvAnswerTo('p', '', d.ice, d.offer); }
   }
   function cvAccept() {
     if (!CV || CV.accepted) return;
@@ -842,16 +1055,28 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     cvMedia().catch(function () {});
     cvSend({ type: 'tem-call-accept' });
   }
-  function cvAnswer(sdp) {
-    var c = CV; if (!c || !c.pc) return;
-    cvToneStop(); cvStatus(ct('connecting'));
-    c.pc.setRemoteDescription({ type: 'answer', sdp: String(sdp || '') }).catch(function () { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); });
+  function cvAnswer(sdp, peer) {
+    var c = CV, p = c && c.peers[peer || 'p']; if (!p) return;
+    cvToneStop(); if (!c.group) cvStatus(ct('connecting'));
+    p.pc.setRemoteDescription({ type: 'answer', sdp: String(sdp || '') }).catch(function () { if (!c.group) { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); } else cvPeerGone(peer); });
   }
   function cvLive() {
-    var c = CV; if (!c || c.st === 'live') { if (c) cvStatus(''); return; }
-    c.st = 'live'; c.t0 = Date.now(); cvToneStop(); cvStatus(''); cvDraw();
+    var c = CV; if (!c) return;
+    if (c.st === 'live') { if (!c.group) cvStatus(c.timer ? '' : ct('connecting')); return; }
+    c.st = 'live'; cvToneStop(); cvDraw();
     cvSend({ type: 'tem-call-state', st: 'live' });
-    c.timer = setInterval(function () { if (CV !== c) return; var s = Math.floor((Date.now() - c.t0) / 1000); $('cvTime').textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }, 1000);
+    /* one-to-one: the time starts when the direct line opens on both phones (see cvNewPeer) */
+    var p = c.peers.p;
+    if (c.group || !p || !p.dc) cvClock(Date.now());
+    else if (!c.timer) { cvStatus(p.dc.readyState === 'open' ? '' : ct('connecting')); setTimeout(function () { if (CV === c && !c.timer) cvClock(Date.now()); }, 6000); }
+  }
+  function cvClock(t0) {
+    var c = CV; if (!c) return;
+    c.t0 = t0;
+    if (!c.group) cvStatus('');
+    var tick = function () { if (CV !== c) return; var s = Math.max(0, Math.floor((Date.now() - c.t0) / 1000)); $('cvTime').textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); };
+    tick();
+    if (!c.timer) c.timer = setInterval(tick, 250);
   }
   function cvFlip() {
     var c = CV; if (!c || !c.local || !c.video) return;
@@ -859,8 +1084,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     navigator.mediaDevices.getUserMedia({ video: { facingMode: want, width: { ideal: 640 }, height: { ideal: 480 } } }).then(function (st) {
       if (CV !== c) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
       var nt = st.getVideoTracks()[0], old = c.local.getVideoTracks()[0];
-      var snd = c.pc && c.pc.getSenders().filter(function (s) { return s.track && s.track.kind === 'video'; })[0];
-      (snd ? snd.replaceTrack(nt) : Promise.resolve()).then(function () {
+      Promise.all(cvPeerList().map(function (p) { var snd = p.pc.getSenders().filter(function (s) { return s.track && s.track.kind === 'video'; })[0]; return snd ? snd.replaceTrack(nt) : null; })).then(function () {
         if (old) { c.local.removeTrack(old); old.stop(); }
         c.local.addTrack(nt); c.facing = want; nt.enabled = !c.camOff;
         var lv = $('cvLocal'); lv.srcObject = c.local; lv.classList.toggle('back', want !== 'user'); lv.play().catch(function () {});
@@ -870,18 +1094,136 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   function cvStop(text, quick) {
     var c = CV; if (!c) return;
     CV = null;
-    clearInterval(c.timer); clearInterval(c.tone); clearInterval(c.vib);
+    clearInterval(c.timer); clearInterval(c.tone); clearInterval(c.vib); clearInterval(c.spk);
+    try { if (c.mac) c.mac.close(); } catch (e) {}
     try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
-    try { if (c.pc) c.pc.close(); } catch (e) {}
+    Object.keys(c.peers).forEach(function (k) { try { c.peers[k].pc.close(); } catch (e) {} });
     try { if (c.local) c.local.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
     try { if (c.ac) c.ac.close(); } catch (e) {}
     ['cvRemote', 'cvLocal', 'cvAudio'].forEach(function (id) { try { $(id).srcObject = null; } catch (e) {} });
+    $('cvAudios').innerHTML = ''; $('cvGrid').innerHTML = ''; $('cvDark').classList.add('hidden');
     WAKE.want = !!c.wake0; wakeApply();
     var v = $('callView');
+    v.classList.remove('opening');
     if (quick || !text) { v.classList.add('hidden'); return; }
     cvStatus(text); $('cvBtns').innerHTML = ''; v.classList.add('closing');
-    setTimeout(function () { if (!CV) v.classList.add('hidden'); }, 1600);
+    setTimeout(function () { if (!CV) v.classList.add('hidden'); }, 1400);
   }
+  /* ear mode: a black screen while you hold the phone to your ear (no cheek taps); tap twice to light it */
+  (function () {
+    var last = 0;
+    $('cvDark').addEventListener('click', function () { var n = Date.now(); if (n - last < 400) $('cvDark').classList.add('hidden'); last = n; });
+  })();
+  /* ===================== chat videos (1.1.35) =====================
+     A video plays here, full screen, while it downloads: the service worker asks this page for each piece the
+     player needs, this page asks the app, and the app fetches 1 MB parts from Google Drive (several at a time).
+     Without a service worker the whole video is fetched first (with a progress number). */
+  var VP = null, VPREQ = {}, VPN = 0;
+  function vpOpen(src, org, d) {
+    var id = String(d.id || '').slice(0, 60);
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) return;
+    if (VP) vpClose(true);
+    try { src.postMessage({ type: 'tem-video-ack', id: id }, org); } catch (e) {}
+    var name = String(d.name || 'video.mp4').replace(/[^\w.\- ]/g, '_').slice(0, 80) || 'video.mp4';
+    VP = { src: src, org: org, id: id, sid: 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), name: name,
+      size: Number(d.size) || 0, mime: /^video\/[\w.+-]+$/.test(String(d.mime || '')) ? String(d.mime) : 'video/mp4', txt: d.txt && typeof d.txt === 'object' ? d.txt : {}, urls: [], played: false, mode: '' };
+    var v = $('vpVid'), el = $('vpView');
+    $('vpT').textContent = String(d.title || '').slice(0, 60);
+    $('vpS').textContent = String(d.sub || '').slice(0, 60);
+    var cap = String(d.cap || '').slice(0, 400); $('vpCap').textContent = cap; $('vpCap').classList.toggle('hidden', !cap);
+    $('vpSave').title = String(VP.txt.save || 'Save').slice(0, 40); $('vpFs').title = String(VP.txt.full || 'Full screen').slice(0, 40); $('vpX').title = String(VP.txt.close || 'Close').slice(0, 40);
+    if (typeof Blob !== 'undefined' && d.poster instanceof Blob && /^image\//.test(d.poster.type || 'image/jpeg')) { var pu = URL.createObjectURL(d.poster); VP.urls.push(pu); v.poster = pu; }
+    else if (/^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(String(d.posterUrl || ''))) v.poster = d.posterUrl;
+    else v.removeAttribute('poster');
+    el.classList.remove('hidden', 'closing', 'bare', 'opening'); void el.offsetWidth; el.classList.add('opening');
+    vpLoading(true, '');
+    try { history.pushState({ tvp: VP.sid }, ''); VP.hist = true; } catch (e) {}
+    /* streaming needs this page to be run by the service worker */
+    if (navigator.serviceWorker && navigator.serviceWorker.controller && window.ReadableStream) { VP.mode = 'stream'; v.src = '__vs/' + VP.sid + '/' + encodeURIComponent(name); }
+    else vpBlob();
+    var p = v.play(); if (p && p.catch) p.catch(function () {});
+  }
+  function vpLoading(on, t) { $('vpLoad').classList.toggle('hidden', !on); $('vpLoadT').textContent = t || ''; }
+  function vpProg(p) { if (VP && VP.mode === 'blob') vpLoading(true, String(VP.txt.load || 'Loading video').replace(/\s*$/, '') + ' ' + Math.round(p * 100) + '%'); }
+  /* the whole video first (older phones, or when streaming did not work) */
+  function vpBlob(save) {
+    if (!VP) return;
+    if (save) VP.saveAfter = true;
+    if (VP.blob) { vpBlobRes({ ok: true, blob: VP.blob }); return; }
+    if (VP.asked) return;
+    VP.asked = true;
+    if (!save) { VP.mode = 'blob'; vpProg(0); }
+    try { VP.src.postMessage({ type: 'tem-vblob', id: VP.id }, VP.org); } catch (e) {}
+  }
+  function vpBlobRes(d) {
+    if (!VP) return;
+    VP.asked = false;
+    if (!d.ok || !(d.blob instanceof Blob)) { vpLoading(false); return; }
+    VP.blob = d.blob;
+    if (VP.mode === 'blob') {
+      var v = $('vpVid'), u = URL.createObjectURL(d.blob); VP.urls.push(u);
+      v.src = u; var p = v.play(); if (p && p.catch) p.catch(function () {});
+      vpLoading(false);
+    }
+    if (VP.saveAfter) { VP.saveAfter = false; saveMedia(d.blob, VP.name, true, function () {}); }
+  }
+  /* the service worker wants bytes off … off+len-1: ask the app */
+  function vpServe(d, port) {
+    if (!VP || VP.sid !== d.sid) { try { port.postMessage({ ok: false, err: 'gone' }); } catch (e) {} return; }
+    var rid = 'r' + (++VPN);
+    VPREQ[rid] = { port: port, t: setTimeout(function () { var r = VPREQ[rid]; delete VPREQ[rid]; if (r) try { r.port.postMessage({ ok: false, err: 'timeout' }); } catch (e) {} }, 40000) };
+    try { VP.src.postMessage({ type: 'tem-vr', rid: rid, id: VP.id, off: Math.max(0, Math.floor(Number(d.off) || 0)), len: Math.max(1, Math.min(2097152, Math.floor(Number(d.len) || 1048576))) }, VP.org); }
+    catch (e) { clearTimeout(VPREQ[rid].t); delete VPREQ[rid]; try { port.postMessage({ ok: false, err: 'app' }); } catch (er) {} }
+  }
+  function vpRes(d) {
+    var r = VPREQ[String(d.rid || '')]; if (!r) return;
+    delete VPREQ[String(d.rid)]; clearTimeout(r.t);
+    var buf = d.buf instanceof ArrayBuffer ? d.buf : null;
+    if (d.ok && VP && Number(d.size) > 0) VP.size = Number(d.size);
+    try { if (d.ok && buf) r.port.postMessage({ ok: true, buf: buf, size: Number(d.size) || 0, mime: VP ? VP.mime : String(d.mime || 'video/mp4') }, [buf]); else r.port.postMessage({ ok: false, err: String(d.err || 'no data').slice(0, 80) }); } catch (e) {}
+  }
+  function vpClose(quick) {
+    if (!VP) return;
+    var vp = VP, v = $('vpVid'), el = $('vpView');
+    VP = null;
+    Object.keys(VPREQ).forEach(function (k) { clearTimeout(VPREQ[k].t); try { VPREQ[k].port.postMessage({ ok: false, err: 'gone' }); } catch (e) {} delete VPREQ[k]; });
+    try { v.pause(); } catch (e) {}
+    var done = function () { try { v.removeAttribute('src'); v.load(); } catch (e) {} vp.urls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} }); el.classList.add('hidden'); el.classList.remove('closing'); };
+    try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {}); } catch (e) {}
+    if (vp.hist && !vp.popped) { vp.closing = true; try { history.back(); } catch (e) {} }
+    if (quick) done(); else { el.classList.remove('opening'); el.classList.add('closing'); setTimeout(done, 200); }
+  }
+  (function () {
+    var v = $('vpVid'), el = $('vpView');
+    v.addEventListener('playing', function () { if (VP) { VP.played = true; vpLoading(false); } });
+    v.addEventListener('canplay', function () { if (VP && VP.mode === 'stream') vpLoading(false); });
+    v.addEventListener('waiting', function () { if (VP && VP.mode === 'stream') vpLoading(true, ''); });
+    /* streaming failed (this phone's browser could not read it that way): fetch the whole video instead */
+    v.addEventListener('error', function () { if (VP && VP.mode === 'stream' && !VP.played) { VP.mode = 'blob'; v.removeAttribute('src'); vpBlob(); } });
+    $('vpX').addEventListener('click', function () { vpClose(); });
+    $('vpSave').addEventListener('click', function () { if (!VP) return; if (VP.blob) saveMedia(VP.blob, VP.name, true, function () {}); else { vpLoading(true, ''); vpBlob(true); } });
+    $('vpFs').addEventListener('click', function () {
+      try {
+        if (v.requestFullscreen) v.requestFullscreen().then(function () { try { if (v.videoWidth > v.videoHeight && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {}); } catch (e) {} }).catch(function () {});
+        else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+      } catch (e) {}
+    });
+    window.addEventListener('popstate', function () { if (VP && !VP.closing) { VP.popped = true; vpClose(); } });
+    document.addEventListener('keydown', function (e) { if (VP && e.key === 'Escape') vpClose(); });
+    /* drag down to close; a tap on the picture shows / hides the bar */
+    var y0 = null, x0 = 0, t0 = 0;
+    el.addEventListener('pointerdown', function (e) { if (!VP || e.target.closest('.vp-top') || e.clientY > window.innerHeight - 90) { y0 = null; return; } y0 = e.clientY; x0 = e.clientX; t0 = Date.now(); });
+    el.addEventListener('pointermove', function (e) { if (y0 === null || !VP) return; var dy = e.clientY - y0; if (dy > 10 && Math.abs(dy) > Math.abs(e.clientX - x0)) { v.style.transition = 'none'; v.style.transform = 'translateY(' + dy + 'px) scale(' + Math.max(.7, 1 - dy / 1600) + ')'; el.style.background = 'rgba(0,0,0,' + Math.max(.3, 1 - dy / 500) + ')'; } });
+    var up = function (e) {
+      if (y0 === null || !VP) return;
+      var dy = e.clientY - y0, dx = e.clientX - x0, dt = Date.now() - t0; y0 = null;
+      v.style.transition = 'transform .2s'; el.style.background = '';
+      if (dy > 120 || (dy > 50 && dt < 250)) { v.style.transform = ''; vpClose(); return; }
+      v.style.transform = '';
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8 && dt < 300 && e.target === el) el.classList.toggle('bare');
+    };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', function () { y0 = null; v.style.transform = ''; el.style.background = ''; });
+  })();
   /* service worker (needed for "Install app" on Android) */
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(function () {});

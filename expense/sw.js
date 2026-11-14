@@ -1,6 +1,6 @@
 /* Trip Expense Manager — PWA Launcher service worker: caches only the launcher shell.
    The app itself (Google Apps Script) is always loaded live from Google. */
-var CACHE = 'trip-launcher-v20';
+var CACHE = 'trip-launcher-v21';
 var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'badge-96.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
@@ -57,9 +57,60 @@ self.addEventListener('notificationclick', function (e) {
     return self.clients.openWindow ? self.clients.openWindow('./' + (go ? '?go=' + encodeURIComponent(go) + (msg ? '&gm=' + encodeURIComponent(msg) : '') : '')) : null;
   }));
 });
+/* 1.1.35: a chat video plays while it downloads. The player asks for pieces (byte ranges); this worker asks the
+   launcher page for each piece, the page asks the app, and the app fetches it from Google Drive. */
+function vsAsk(list, sid, off, len) {
+  var i = 0;
+  var one = function () {
+    if (i >= list.length) return Promise.reject(new Error('no player'));
+    var cl = list[i++];
+    return new Promise(function (ok, bad) {
+      var ch = new MessageChannel(), t = setTimeout(function () { bad(new Error('timeout')); }, 45000);
+      ch.port1.onmessage = function (ev) { clearTimeout(t); var d = ev.data || {}; if (d.ok) ok({ d: d, cl: cl }); else bad(new Error(d.err || 'no data')); };
+      cl.postMessage({ type: 'tem-vs-req', sid: sid, off: off, len: len }, [ch.port2]);
+    }).catch(function (e) { if (e.message === 'gone' && i < list.length) return one(); throw e; });
+  };
+  return one();
+}
+function vsServe(e, url) {
+  var m = /\/__vs\/([A-Za-z0-9]{6,40})\//.exec(url.pathname);
+  if (!m) return Promise.resolve(new Response('', { status: 404 }));
+  var sid = m[1], rg = /bytes=(\d+)-(\d*)/.exec(e.request.headers.get('range') || ''), a = rg ? Number(rg[1]) : 0;
+  var who = e.clientId ? self.clients.get(e.clientId) : Promise.resolve(null);
+  return who.then(function (c) { return c ? [c] : self.clients.matchAll({ type: 'window' }); }).then(function (list) {
+    var want = rg && rg[2] ? Number(rg[2]) - a + 1 : 262144;
+    return vsAsk(list, sid, a, Math.max(1, Math.min(262144, want))).then(function (x) {
+      var d = x.d, size = Number(d.size) || 0, mime = String(d.mime || 'video/mp4'), only = [x.cl];
+      if (!size || a >= size) return new Response(null, { status: 416, headers: { 'Content-Range': 'bytes */' + size } });
+      var b = rg && rg[2] ? Math.min(Number(rg[2]), size - 1) : size - 1;
+      var first = new Uint8Array(d.buf || new ArrayBuffer(0)), pos, stop = false;
+      if (first.length > b - a + 1) first = first.subarray(0, b - a + 1);
+      pos = a + first.length;
+      var body = new ReadableStream({
+        start: function (ctl) { if (first.length) ctl.enqueue(first); if (pos > b) ctl.close(); },
+        pull: function (ctl) {
+          if (stop || pos > b) return;
+          return vsAsk(only, sid, pos, Math.min(524288, b - pos + 1)).then(function (y) {
+            var u = new Uint8Array(y.d.buf || new ArrayBuffer(0));
+            if (stop) return;
+            if (!u.length) { ctl.close(); return; }
+            if (u.length > b - pos + 1) u = u.subarray(0, b - pos + 1);
+            pos += u.length; ctl.enqueue(u);
+            if (pos > b) ctl.close();
+          }, function (er) { if (!stop) ctl.error(er); });
+        },
+        cancel: function () { stop = true; }
+      });
+      var h = { 'Content-Type': mime, 'Content-Length': String(b - a + 1), 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-store' };
+      if (rg) h['Content-Range'] = 'bytes ' + a + '-' + b + '/' + size;
+      return new Response(body, { status: rg ? 206 : 200, headers: h });
+    });
+  }).catch(function () { return new Response('', { status: 504 }); });
+}
 self.addEventListener('fetch', function (e) {
-  var req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  var req = e.request, u0 = new URL(req.url);
+  if (req.method === 'GET' && u0.origin === self.location.origin && u0.pathname.indexOf('/__vs/') !== -1) { e.respondWith(vsServe(e, u0)); return; }
+  if (req.method !== 'GET' || u0.origin !== self.location.origin) return;
   /* network first (so updates show), cache as offline fallback */
   e.respondWith(fetch(req).then(function (res) {
     var copy = res.clone();
