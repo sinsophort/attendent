@@ -6,6 +6,8 @@
 <title>Trip Expense</title>
 <meta name="description" content="Manage and split group trip expenses">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://script.google.com">
+<link rel="dns-prefetch" href="https://script.googleusercontent.com">
 <meta name="theme-color" content="#1e3a8a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -62,6 +64,12 @@
 <div id="offline" class="bar hidden"><span>📶 No internet — the app will open again when you are back online</span></div>
 <div id="installBar" class="bar hidden"><span>📲 Trip Expense</span><button type="button" id="installBtn">Install app</button><button type="button" class="x" data-x="installBar" title="Close">✕</button></div>
 <div id="ntfBar" class="bar hidden"><span>🔔 Turn on alerts and the number badge on the app icon</span><button type="button" id="ntfBtn">Turn on</button><button type="button" class="x" data-x="ntfBar" title="Close">✕</button></div>
+<div id="bioSheet" class="layer hidden" style="z-index:7"><div class="box">
+  <img class="logo" src="icon-192.png" alt="">
+  <h1 id="bioT">Unlock</h1><p id="bioP"></p>
+  <button class="btn" type="button" id="bioGo">🙂 Continue</button><br>
+  <button class="btn ghost" type="button" id="bioNo">Cancel</button>
+</div></div>
 <div id="iosBar" class="bar hidden"><span>📲 To install: tap Share ⬆️ → Add to Home Screen ➕</span><button type="button" class="x" data-x="iosBar" title="Close">✕</button></div>
 
 <script src="config.js"></script>
@@ -97,10 +105,13 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       }, 75000);
     }, 12000);
   }
+  var hideT = null;
+  function hideSplash() { clearTimeout(hideT); splash.classList.add('hidden'); }
   frame.addEventListener('load', function () {
     if (!frame.src || frame.src === 'about:blank') return;
     clearTimeout(slowTimer);
-    setTimeout(function () { splash.classList.add('hidden'); }, 600);
+    /* the app says "ready" when it has drawn itself; older versions do not, so give up waiting after a few seconds */
+    clearTimeout(hideT); hideT = setTimeout(hideSplash, 3500);
   });
   $('retry').onclick = function () { frame.src = 'about:blank'; setTimeout(open, 50); };
   $('change').onclick = function (e) { e.preventDefault(); clearTimeout(slowTimer); splash.classList.add('hidden'); setup.classList.remove('hidden'); $('url').value = appUrl(); };
@@ -296,6 +307,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   window.addEventListener('message', function (e) {
     if (!okOrigin(e.origin) || !e.data || typeof e.data !== 'object') return;
     if (e.source && e.data.type !== 'tem-go') { APPWIN = e.source; APPORIGIN = e.origin; if (PENDING_GO && e.data.type === 'tem-ready') sendGo(PENDING_GO, PENDING_MSG); }
+    if (e.data.type === 'tem-ready') hideSplash();
     if (e.data.type === 'tem-save') saveFile(e.data.blob, e.data.name);
     if (e.data.type === 'tem-badge') setBadge(e.data.count);
     if (e.data.type === 'tem-notify') localNotify(String(e.data.title || '').slice(0, 80), String(e.data.body || '').slice(0, 200), e.data.go);
@@ -348,12 +360,86 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       try { if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then(function (r) { if (r) r.update(); }).catch(function () {}); } catch (er) {}
       frame.src = 'about:blank'; setTimeout(open, 80);
     }
-    if (e.data.type === 'tem-auth-clear') { try { localStorage.removeItem('tem_launcher_auth'); } catch (er) {} }
+    if (e.data.type === 'tem-auth-clear') { try { localStorage.removeItem('tem_launcher_auth'); } catch (er) {} kclear(); }
     if (e.data.type === 'tem-auth-get') {
       var tok = ''; try { tok = localStorage.getItem('tem_launcher_auth') || ''; } catch (er) {}
-      try { e.source.postMessage({ type: 'tem-auth', token: tok }, e.origin); } catch (er) {}
+      var src = e.source, org = e.origin;
+      (tok ? kall() : Promise.resolve({})).then(function (keep) { try { src.postMessage({ type: 'tem-auth', token: tok, keep: keep }, org); } catch (er) {} });
     }
+    if (e.data.type === 'tem-keep' && KEEP_OK.test(String(e.data.key || '')) && typeof e.data.value === 'string' && e.data.value.length < 4000000) kput(e.data.key, e.data.value);
+    if (e.data.type === 'tem-bio-new') bioNew(e.source, e.origin, e.data);
+    if (e.data.type === 'tem-bio-get') bioGet(e.source, e.origin, e.data);
+    if (e.data.type === 'tem-bio-cancel') bioHide();
   });
+  /* ---- a small store for the app's last data (IndexedDB on your own website) ---- */
+  var KEEP_OK = /^tem_(boot|av|chc_[a-z0-9._-]{1,30})$/, KDB = null;
+  function kdb() {
+    if (KDB) return KDB;
+    KDB = new Promise(function (ok, bad) {
+      try { var r = indexedDB.open('tem-keep', 1); r.onupgradeneeded = function () { r.result.createObjectStore('kv'); }; r.onsuccess = function () { ok(r.result); }; r.onerror = function () { bad(r.error); }; }
+      catch (er) { bad(er); }
+    });
+    return KDB;
+  }
+  function kput(k, v) { return kdb().then(function (db) { return new Promise(function (ok) { var t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = ok; t.onerror = ok; }); }).catch(function () {}); }
+  function kclear() { return kdb().then(function (db) { return new Promise(function (ok) { var t = db.transaction('kv', 'readwrite'); t.objectStore('kv').clear(); t.oncomplete = ok; t.onerror = ok; }); }).catch(function () {}); }
+  function kall() {
+    var read = kdb().then(function (db) {
+      return new Promise(function (ok) {
+        var out = {}, t = db.transaction('kv'), c = t.objectStore('kv').openCursor();
+        c.onsuccess = function () { var x = c.result; if (x) { if (KEEP_OK.test(String(x.key))) out[x.key] = x.value; x.continue(); } else ok(out); };
+        c.onerror = function () { ok(out); };
+      });
+    }).catch(function () { return {}; });
+    /* never hold up the login for long */
+    return Promise.race([read, new Promise(function (ok) { setTimeout(function () { ok({}); }, 900); })]);
+  }
+  /* ---- Face ID / fingerprint (WebAuthn on your own website; Google's frame cannot use it) ---- */
+  function b64u(buf) { var s = '', b = new Uint8Array(buf); for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function unb64u(t) { t = String(t).replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '='; var s = atob(t), b = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
+  function rnd(n) { var b = new Uint8Array(n); crypto.getRandomValues(b); return b; }
+  function bioOk() { return !!(window.PublicKeyCredential && navigator.credentials && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable); }
+  var BIO = { src: null, org: '', kind: '', data: null };
+  function bioReply(o) { try { if (BIO.src) BIO.src.postMessage(Object.assign({ type: 'tem-bio-res' }, o), BIO.org); } catch (er) {} }
+  function bioHide() { $('bioSheet').classList.add('hidden'); }
+  function bioShow(kind) {
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var what = ios ? 'Face ID' : 'fingerprint / face unlock';
+    $('bioT').textContent = kind === 'new' ? 'Turn on ' + what : 'Unlock Trip Expense';
+    $('bioP').textContent = kind === 'new' ? 'Tap Continue, then confirm with ' + what + '.' : 'Tap to unlock with ' + what + '.';
+    $('bioGo').textContent = kind === 'new' ? '🙂 Continue' : '🙂 Unlock';
+    $('bioNo').textContent = kind === 'new' ? 'Cancel' : 'Use PIN / pattern';
+    $('bioSheet').classList.remove('hidden');
+  }
+  function bioCreate() {
+    var d = BIO.data || {};
+    return navigator.credentials.create({ publicKey: {
+      rp: { name: 'Trip Expense' }, user: { id: rnd(16), name: String(d.user || 'user').slice(0, 60), displayName: String(d.name || d.user || 'user').slice(0, 60) },
+      challenge: rnd(32), pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' }, timeout: 60000, attestation: 'none' } })
+      .then(function (c) { bioHide(); bioReply({ op: 'new', ok: true, id: b64u(c.rawId) }); });
+  }
+  function bioAssert() {
+    var d = BIO.data || {};
+    return navigator.credentials.get({ publicKey: { challenge: rnd(32), allowCredentials: [{ type: 'public-key', id: unb64u(d.id) }], userVerification: 'required', timeout: 60000 } })
+      .then(function () { bioHide(); bioReply({ op: 'get', ok: true }); });
+  }
+  function bioNew(src, org, d) {
+    BIO = { src: src, org: org, kind: 'new', data: d };
+    if (!bioOk()) return bioReply({ op: 'new', ok: false, err: 'unsupported' });
+    PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function (y) { if (!y) bioReply({ op: 'new', ok: false, err: 'unsupported' }); else bioShow('new'); });
+  }
+  function bioGet(src, org, d) {
+    BIO = { src: src, org: org, kind: 'get', data: d };
+    if (!bioOk() || !/^[A-Za-z0-9_-]{16,700}$/.test(String(d.id || ''))) return bioReply({ op: 'get', ok: false, err: 'unsupported' });
+    /* try at once (Android allows it); if the phone wants a tap first (iPhone), show the button */
+    var t0 = Date.now();
+    bioAssert().catch(function (er) { if (Date.now() - t0 < 1500 && er && er.name === 'NotAllowedError') bioShow('get'); else { bioHide(); bioReply({ op: 'get', ok: false, err: er && er.name }); } });
+  }
+  $('bioGo').onclick = function () {
+    (BIO.kind === 'new' ? bioCreate() : bioAssert()).catch(function (er) { bioHide(); bioReply({ op: BIO.kind, ok: false, err: er && er.name }); });
+  };
+  $('bioNo').onclick = function () { bioHide(); bioReply({ op: BIO.kind, ok: false, err: 'cancel' }); };
   var ntfX = false; try { ntfX = !!localStorage.getItem('tem_launcher_ntfx'); } catch (e) {}
   if ('Notification' in window && Notification.permission === 'default' && standalone() && !ntfX) setTimeout(function () { $('ntfBar').classList.remove('hidden'); }, 4000);
   $('ntfBtn').onclick = function () {
