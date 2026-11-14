@@ -1,4 +1,4 @@
-const CACHE_NAME = 'go7-bank-shell-v3.6.9';
+const CACHE_NAME = 'go7-bank-shell-v3.6.91';
 const SHELL_ASSETS = [
   './',
   './index.html',
