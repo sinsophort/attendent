@@ -1,1 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Trip Expense</title>
+<meta name="description" content="Manage and split group trip expenses">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://script.google.com">
+<link rel="dns-prefetch" href="https://script.googleusercontent.com">
+<meta name="theme-color" content="#1e3a8a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Trip Expense">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="favicon-32.png">
 
+<style>
+  /* Trip Expense Manager — PWA Launcher: opens the Apps Script web app full screen with a proper icon and name */
+  :root { --c1: #2563eb; --c2: #14b8a6; }
+  html, body { margin: 0; height: 100%; background: #f3f6fb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Kantumruy Pro", "Noto Sans Khmer", sans-serif; overscroll-behavior: none; }
+  #app { position: fixed; left: 0; right: 0; top: env(safe-area-inset-top, 0px); bottom: 0; width: 100%; height: calc(100% - env(safe-area-inset-top, 0px)); border: 0; background: #f3f6fb; }
+  .layer { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: linear-gradient(160deg, #1e3a8a, #0f766e); color: #fff; text-align: center; }
+  .hidden { display: none !important; }
+  .logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 16px 40px rgba(0, 0, 0, .3); }
+  .ring { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .3); border-top-color: #fff; animation: spin .9s linear infinite; margin: 22px auto 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { font-size: 20px; margin: 16px 0 4px; } p { margin: 6px 0; opacity: .92; font-size: 14px; line-height: 1.5; }
+  .box { max-width: 420px; width: 100%; }
+  .btn { display: inline-block; border: 0; border-radius: 12px; padding: 12px 18px; margin: 6px 4px 0; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; background: #fff; color: #1e3a8a; }
+  .btn.ghost { background: rgba(255, 255, 255, .15); color: #fff; }
+  input { width: 100%; box-sizing: border-box; border-radius: 12px; border: 0; padding: 13px 14px; font-size: 16px; margin-top: 12px; }
+  .err { color: #fecaca; min-height: 20px; font-size: 13px; margin-top: 6px; }
+  .small { font-size: 12px; opacity: .8; }
+  #slow { margin-top: 18px; }
+  .bar { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 6; display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 14px; color: #fff; background: rgba(15, 23, 42, .92); font-size: 13.5px; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
+  .bar span { flex: 1; } .bar button { border: 0; background: #fff; color: #1e3a8a; border-radius: 10px; padding: 8px 12px; font: inherit; font-weight: 600; cursor: pointer; }
+  .bar .x { background: transparent; color: #fff; font-size: 18px; padding: 4px 6px; }
+  .bio-ico { width: 104px; height: 104px; margin: 0 auto 6px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .14);
+    box-shadow: 0 0 0 10px rgba(255, 255, 255, .06), 0 16px 40px rgba(0, 0, 0, .25); animation: bioPulse 2.2s ease-in-out infinite; }
+  .bio-ico svg { width: 58px; height: 58px; }
+  @keyframes bioPulse { 50% { box-shadow: 0 0 0 18px rgba(255, 255, 255, .08), 0 16px 40px rgba(0, 0, 0, .25); } }
+  #bioGo { font-size: 17px; padding: 15px 30px; border-radius: 99px; min-width: 220px; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+  #twaSheet .box { text-align: left; background: rgba(255, 255, 255, .1); border-radius: 18px; padding: 18px; }
+  #twaSheet h1 { text-align: center; } #twaSheet p { font-size: 14px; } #twaSheet code { word-break: break-all; background: rgba(0, 0, 0, .25); padding: 1px 5px; border-radius: 6px; }
+  #twaSheet .acts { text-align: center; margin-top: 10px; }
+  @media (prefers-reduced-motion: reduce) { .bio-ico { animation: none; } }
+</style>
+</head>
+<body>
+<iframe id="app" title="Trip Expense Manager" allow="geolocation *; clipboard-write *; camera *; microphone *; fullscreen *; autoplay *" referrerpolicy="no-referrer-when-downgrade"></iframe>
+
+<div id="splash" class="layer"><div class="box">
+  <img class="logo" src="icon-192.png" alt="">
+  <h1>Trip Expense Manager</h1>
+  <div class="ring"></div><p id="opening">Opening the app…</p>
+  <p id="patience" class="small hidden">The first start of the day can take a little longer — please wait</p>
+  <div id="slow" class="hidden"><p>The app could not be opened.</p><p class="small" id="slowWhy">Please check your internet connection.</p>
+    <button class="btn" type="button" id="retry">⟳ Try again</button>
+    <p class="small" style="margin-top:12px"><a href="#" id="direct" target="_blank" rel="noopener" style="color:#fff">Open in browser</a> · <a href="#" id="change" style="color:#fff">Change link</a></p>
+  </div>
+</div></div>
+
+<div id="setup" class="layer hidden"><form class="box" id="setupForm" novalidate>
+  <img class="logo" src="icon-192.png" alt="">
+  <h1>Connect the app</h1><p>Paste the Web App link (it starts with https://script.google.com/macros/s/ ... /exec)</p>
+  <input id="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec">
+  <div class="err" id="err"></div>
+  <button class="btn" type="submit">Save and open</button>
+</form></div>
+
+<div id="offline" class="bar hidden"><span>📶 No internet — the app will open again when you are back online</span></div>
+<div id="installBar" class="bar hidden"><span>📲 Trip Expense</span><button type="button" id="installBtn">Install app</button><button type="button" class="x" data-x="installBar" title="Close">✕</button></div>
+<div id="ntfBar" class="bar hidden"><span>🔔 Turn on alerts and the number badge on the app icon</span><button type="button" id="ntfBtn">Turn on</button><button type="button" class="x" data-x="ntfBar" title="Close">✕</button></div>
+<div id="bioSheet" class="layer hidden" style="z-index:7"><div class="box">
+  <div class="bio-ico" id="bioIco"></div>
+  <h1 id="bioT">Unlock</h1><p id="bioP"></p>
+  <button class="btn" type="button" id="bioGo">Continue</button><br>
+  <button class="btn ghost" type="button" id="bioNo">Cancel</button>
+</div></div>
+<div id="twaSheet" class="layer hidden" style="z-index:8"><div class="box">
+  <h1>📲 Address bar in the app</h1>
+  <div id="twaBody"></div>
+  <div class="acts"><button class="btn" type="button" id="twaOk">OK</button> <button class="btn ghost" type="button" id="twaNever">Don't show again</button></div>
+</div></div>
+<div id="iosBar" class="bar hidden"><span>📲 To install: tap Share ⬆️ → Add to Home Screen ➕</span><button type="button" class="x" data-x="iosBar" title="Close">✕</button></div>
+
+<script src="config.js"></script>
+<script>
+/* The Web App link is set in config.js (edit that small file, not this one). */
+var APP_URL = String(window.TRIP_APP_URL || '');
+
+(function () {
+  var KEY = 'tem_launcher_url';
+  var $ = function (id) { return document.getElementById(id); };
+  var frame = $('app'), splash = $('splash'), setup = $('setup');
+  var slowTimer = null;
+  function valid(u) { return /^https:\/\/script\.google\.com\/(a\/macros\/[^\/\s]+|macros)\/s\/[A-Za-z0-9_-]+\/exec\/?$/.test(String(u || '').trim()); }
+  function saved() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+  function appUrl() { return valid(APP_URL) ? APP_URL.trim() : (valid(saved()) ? saved() : ''); }
+  function standalone() { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+  function open() {
+    var u = appUrl();
+    if (!u) { splash.classList.add('hidden'); setup.classList.remove('hidden'); setTimeout(function () { $('url').focus(); }, 100); return; }
+    setup.classList.add('hidden'); splash.classList.remove('hidden'); $('slow').classList.add('hidden');
+    $('patience').classList.add('hidden'); $('opening').classList.remove('hidden');
+    $('direct').href = u;
+    frame.src = u + (u.indexOf('?') < 0 ? '?' : '&') + 'app=pwa';
+    clearTimeout(slowTimer);
+    /* keep waiting quietly: a slow first start is normal for Google Apps Script */
+    slowTimer = setTimeout(function () {
+      $('patience').classList.remove('hidden');
+      slowTimer = setTimeout(function () {
+        $('opening').classList.add('hidden'); $('patience').classList.add('hidden');
+        $('slowWhy').textContent = navigator.onLine === false ? 'No internet connection.' :
+          'If this keeps happening, the admin should check Settings → Phone app → "Allow embedding in the PWA Launcher" and deploy a new version.';
+        $('slow').classList.remove('hidden');
+      }, 75000);
+    }, 12000);
+  }
+  var hideT = null;
+  function hideSplash() { clearTimeout(hideT); splash.classList.add('hidden'); }
+  frame.addEventListener('load', function () {
+    if (!frame.src || frame.src === 'about:blank') return;
+    clearTimeout(slowTimer);
+    /* the app says "ready" when it has drawn itself; older versions do not, so give up waiting after a few seconds */
+    clearTimeout(hideT); hideT = setTimeout(hideSplash, 3500);
+  });
+  $('retry').onclick = function () { frame.src = 'about:blank'; setTimeout(open, 50); };
+  $('change').onclick = function (e) { e.preventDefault(); clearTimeout(slowTimer); splash.classList.add('hidden'); setup.classList.remove('hidden'); $('url').value = appUrl(); };
+  $('setupForm').onsubmit = function (e) {
+    e.preventDefault();
+    var u = $('url').value.trim();
+    if (!valid(u)) { $('err').textContent = 'Invalid link — it must start with https://script.google.com/ and end with /exec'; return; }
+    try { localStorage.setItem(KEY, u); } catch (er) {}
+    APP_URL = u; $('err').textContent = ''; open();
+  };
+  /* offline / online */
+  function net() { $('offline').classList.toggle('hidden', navigator.onLine !== false); }
+  window.addEventListener('online', function () { net(); if (frame.src && !splash.classList.contains('hidden')) open(); });
+  window.addEventListener('offline', net);
+  net();
+  /* install prompts */
+  var deferred = null;
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; if (!standalone()) $('installBar').classList.remove('hidden'); });
+  $('installBtn').onclick = function () { if (!deferred) return; deferred.prompt(); deferred = null; $('installBar').classList.add('hidden'); };
+  window.addEventListener('appinstalled', function () { $('installBar').classList.add('hidden'); });
+  var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var dismissed = false; try { dismissed = !!localStorage.getItem('tem_launcher_iosx'); } catch (e) {}
+  if (ios && !standalone() && !dismissed) setTimeout(function () { $('iosBar').classList.remove('hidden'); }, 2500);
+  Array.prototype.forEach.call(document.querySelectorAll('[data-x]'), function (b) {
+    b.onclick = function () {
+      var id = b.getAttribute('data-x');
+      $(id).classList.add('hidden');
+      try { if (id === 'iosBar') localStorage.setItem('tem_launcher_iosx', '1'); if (id === 'ntfBar') localStorage.setItem('tem_launcher_ntfx', '1'); } catch (e) {}
+    };
+  });
+  /* ---- badge on the app icon + alerts, sent by the app inside the frame ---- */
+  var BASE_TITLE = document.title;
+  function setBadge(n) {
+    n = Math.max(0, Math.min(999, Math.floor(Number(n) || 0)));
+    document.title = (n ? '(' + n + ') ' : '') + BASE_TITLE;
+    try { if (navigator.setAppBadge) { if (n) navigator.setAppBadge(n); else navigator.clearAppBadge(); } } catch (e) {}
+    try { if (window.caches) caches.open('tem-badge').then(function (c) { return c.put('n', new Response(String(n))); }).catch(function () {}); } catch (e) {}
+  }
+  /* ---- real push notifications (Firebase Cloud Messaging). The app sends its public Firebase web config. ---- */
+  var PUSH = { cfg: null, src: null, origin: '*', busy: false };
+  var FB_BASE = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  function loadScript(u) { return new Promise(function (ok, bad) { var sc = document.createElement('script'); sc.src = u; sc.onload = ok; sc.onerror = bad; document.head.appendChild(sc); }); }
+  function toApp(msg) { try { if (PUSH.src) PUSH.src.postMessage(msg, PUSH.origin); } catch (e) {} }
+  function pushSupported() { return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window; }
+  function pushToken() {
+    if (!PUSH.cfg || PUSH.busy || !pushSupported() || Notification.permission !== 'granted') return;
+    PUSH.busy = true;
+    (window.firebase && firebase.messaging ? Promise.resolve() : loadScript(FB_BASE + 'firebase-app-compat.js').then(function () { return loadScript(FB_BASE + 'firebase-messaging-compat.js'); }))
+      .then(function () { return navigator.serviceWorker.ready; })
+      .then(function (reg) {
+        var c = PUSH.cfg;
+        if (!firebase.apps.length) firebase.initializeApp({ apiKey: c.apiKey, authDomain: c.authDomain, projectId: c.projectId, storageBucket: c.storageBucket, messagingSenderId: c.messagingSenderId, appId: c.appId });
+        return firebase.messaging().getToken({ vapidKey: c.vapidKey, serviceWorkerRegistration: reg });
+      })
+      .then(function (tok) { PUSH.busy = false; if (tok) toApp({ type: 'tem-push-token', token: tok }); })
+      .catch(function (e) { PUSH.busy = false; toApp({ type: 'tem-push-state', state: 'error', error: String(e && e.message || e) }); });
+  }
+  /* ---- microphone: Google's page cannot use it, so the launcher records and sends the sound to the app ---- */
+  var GEO = { watch: null };
+  var WAKE = { want: false, s: null };
+  function wakeApply() {
+    try {
+      if (WAKE.want && !WAKE.s && navigator.wakeLock && document.visibilityState === 'visible') navigator.wakeLock.request('screen').then(function (s) { WAKE.s = s; s.addEventListener('release', function () { WAKE.s = null; }); }).catch(function () {});
+      if (!WAKE.want && WAKE.s) { WAKE.s.release().catch(function () {}); WAKE.s = null; }
+    } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') wakeApply(); });
+  var MIC = { src: null, origin: '*', mr: null, stream: null, sr: null, chunks: [], cancel: false, timer: null };
+  function micReply(m) { try { if (MIC.src) MIC.src.postMessage(m, MIC.origin); } catch (e) {} }
+  function micStart(lang, mode, maxSec) {
+    micStop(true); MIC.cancel = false; MIC.maxSec = Math.max(5, Math.min(180, Number(maxSec) || 30));
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (mode === 'sr' && SR) {
+      var rec, text = '', failed = false;
+      try { rec = new SR(); } catch (e) { return micReply({ type: 'tem-mic-error', error: 'unsupported' }); }
+      rec.lang = lang === 'en' ? 'en-US' : 'km-KH'; rec.interimResults = true; rec.continuous = false;
+      rec.onresult = function (ev) {
+        var interim = '';
+        for (var i = ev.resultIndex; i < ev.results.length; i++) { if (ev.results[i].isFinal) text += ev.results[i][0].transcript; else interim += ev.results[i][0].transcript; }
+        micReply({ type: 'tem-mic-partial', text: (text + ' ' + interim).trim() });
+      };
+      rec.onerror = function (ev) {
+        failed = true; if (MIC.cancel) return;
+        var er = ev.error || 'error';
+        /* recognition cannot do this language here: record instead (the app turns it into text) */
+        if (MIC.canRec && /language-not-supported|network|service-not-allowed/.test(er)) { MIC.sr = null; micStart(lang, 'rec'); return; }
+        micReply({ type: 'tem-mic-error', error: er });
+      };
+      rec.onend = function () { MIC.sr = null; if (!failed && !MIC.cancel) micReply({ type: 'tem-mic-text', text: text }); };
+      MIC.sr = rec;
+      try { rec.start(); } catch (e) { micReply({ type: 'tem-mic-error', error: 'unsupported' }); }
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return micReply({ type: 'tem-mic-error', error: 'unsupported' });
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      if (MIC.cancel) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+      var types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'], type = '';
+      for (var i = 0; i < types.length; i++) { try { if (MediaRecorder.isTypeSupported(types[i])) { type = types[i]; break; } } catch (e) {} }
+      var mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+      MIC.stream = stream; MIC.mr = mr; MIC.chunks = [];
+      mr.ondataavailable = function (ev) { if (ev.data && ev.data.size) MIC.chunks.push(ev.data); };
+      mr.onstop = function () {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        MIC.mr = null; MIC.stream = null; clearTimeout(MIC.timer);
+        if (MIC.cancel) return;
+        var blob = new Blob(MIC.chunks, { type: (mr.mimeType || type || 'audio/webm').split(';')[0] });
+        var fr = new FileReader();
+        fr.onload = function () { micReply({ type: 'tem-mic-audio', data: String(fr.result).split(',')[1] || '', mime: blob.type }); };
+        fr.readAsDataURL(blob);
+      };
+      mr.start();
+      MIC.timer = setTimeout(function () { micStop(false); }, (MIC.maxSec + 1) * 1000);
+    }).catch(function (err) { micReply({ type: 'tem-mic-error', error: (err && (err.name || err.message)) || 'error' }); });
+  }
+  function micStop(cancel) {
+    MIC.cancel = !!cancel; clearTimeout(MIC.timer);
+    try { if (MIC.sr) MIC.sr.stop(); } catch (e) {}
+    try { if (MIC.mr && MIC.mr.state !== 'inactive') MIC.mr.stop(); } catch (e) {}
+    if (cancel && MIC.stream) { MIC.stream.getTracks().forEach(function (t) { t.stop(); }); MIC.stream = null; }
+  }
+  function askPush() {
+    if (!pushSupported()) { toApp({ type: 'tem-push-state', state: 'unsupported' }); return; }
+    if (Notification.permission === 'granted') { pushToken(); return; }
+    if (Notification.permission === 'denied') { toApp({ type: 'tem-push-state', state: 'denied' }); return; }
+    var shown = false;
+    try {
+      Notification.requestPermission().then(function (p) {
+        if (p === 'granted') { $('ntfBar').classList.add('hidden'); pushToken(); }
+        else if (p === 'denied') toApp({ type: 'tem-push-state', state: 'denied' });
+        else if (!shown) { shown = true; $('ntfBar').classList.remove('hidden'); }
+      }).catch(function () { $('ntfBar').classList.remove('hidden'); });
+    } catch (e) { $('ntfBar').classList.remove('hidden'); }
+    /* iPhone needs a tap on the launcher itself: show the bar if no answer came */
+    setTimeout(function () { if (Notification.permission === 'default' && !shown) { shown = true; $('ntfBar').classList.remove('hidden'); } }, 1200);
+  }
+  /* "open this place" from a tapped notification: ?go=… on start, or a message from the service worker */
+  function validGo(g) { return /^(chat|exp|req|page):[A-Za-z0-9@_-]{1,90}$/.test(String(g || '')) ? String(g) : ''; }
+  var APPWIN = null, APPORIGIN = '', PENDING_GO = '', PENDING_MSG = '';
+  try {
+    var q = new URLSearchParams(location.search), g0 = validGo(q.get('go'));
+    if (g0) { PENDING_GO = g0; PENDING_MSG = String(q.get('gm') || '').slice(0, 2500); q.delete('go'); q.delete('gm'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); }
+  } catch (e) {}
+  function sendGo(go, msg) {
+    go = validGo(go); if (!go) return;
+    msg = typeof msg === 'string' ? msg.slice(0, 2500) : '';
+    if (APPWIN) { try { APPWIN.postMessage({ type: 'tem-go', go: go, msg: msg }, APPORIGIN); PENDING_GO = ''; PENDING_MSG = ''; return; } catch (e) {} }
+    PENDING_GO = go; PENDING_MSG = msg;
+  }
+  /* a target is passed on only once, whichever way it arrives first (message from the service worker, or the shared cache) */
+  var GO_SEEN = {};
+  function goOnce(go, msg, key) {
+    key = key || go;
+    if (GO_SEEN[key] && Date.now() - GO_SEEN[key] < 15000) return;
+    GO_SEEN[key] = Date.now();
+    sendGo(go, msg);
+  }
+  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'tem-go') goOnce(e.data.go, e.data.msg); });
+  function goFromCache() {
+    try {
+      if (!window.caches) return;
+      caches.open('tem-badge').then(function (c) {
+        return c.match('go').then(function (r) {
+          if (!r) return;
+          return r.json().then(function (o) {
+            c.delete('go');
+            if (o && o.go && Date.now() - (o.t || 0) < 120000) goOnce(o.go, o.msg);
+          });
+        });
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  goFromCache();
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') goFromCache(); });
+  window.addEventListener('focus', goFromCache);
+  window.addEventListener('pageshow', goFromCache);
+  /* save a photo or file from the app to the phone (Google's frame may not be allowed to download) */
+  function saveFile(blob, name) {
+    if (!(blob instanceof Blob)) return;
+    name = String(name || 'file').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'file';
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+  }
+  function okOrigin(o) { return /^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(o) || o === 'https://script.google.com'; }
+  function localNotify(title, body, go) {
+    if (!('Notification' in window) || Notification.permission !== 'granted' || document.visibilityState === 'visible') return;
+    if (!navigator.serviceWorker) return;
+    navigator.serviceWorker.ready.then(function (reg) {
+      reg.showNotification(title, { body: body, icon: 'icon-192.png', badge: 'badge-96.png', tag: 'tem-' + Date.now(), data: { go: validGo(go) } });
+    }).catch(function () {});
+  }
+  window.addEventListener('message', function (e) {
+    if (!okOrigin(e.origin) || !e.data || typeof e.data !== 'object') return;
+    if (e.source && e.data.type !== 'tem-go') { APPWIN = e.source; APPORIGIN = e.origin; if (PENDING_GO && e.data.type === 'tem-ready') sendGo(PENDING_GO, PENDING_MSG); }
+    if (e.data.type === 'tem-ready') hideSplash();
+    if (e.data.type === 'tem-save') saveFile(e.data.blob, e.data.name);
+    if (e.data.type === 'tem-badge') setBadge(e.data.count);
+    if (e.data.type === 'tem-notify') localNotify(String(e.data.title || '').slice(0, 80), String(e.data.body || '').slice(0, 200), e.data.go);
+    if (e.data.type === 'tem-push-config' && e.data.config && typeof e.data.config === 'object') {
+      var c = e.data.config, ok = ['apiKey', 'projectId', 'messagingSenderId', 'appId', 'vapidKey'].every(function (k) { return typeof c[k] === 'string' && c[k]; });
+      if (!ok) return;
+      PUSH.cfg = c; PUSH.src = e.source; PUSH.origin = e.origin;
+      if (pushSupported() && Notification.permission === 'granted') pushToken();
+      else if (pushSupported() && Notification.permission === 'default' && standalone() && !ntfX) $('ntfBar').classList.remove('hidden');
+    }
+    if (e.data.type === 'tem-push-ask') { PUSH.src = e.source; PUSH.origin = e.origin; askPush(); }
+    if (e.data.type === 'tem-mic-start') {
+      MIC.src = e.source; MIC.origin = e.origin; micReply({ type: 'tem-mic-ack' });
+      var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var lang = String(e.data.lang || 'km'), SRok = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      /* the phone's own recognition is the fastest (Android: Khmer + English, iPhone: English); otherwise record */
+      var mode = e.data.mode === 'sr' ? 'sr' : e.data.mode === 'rec' ? 'rec' : (SRok && !(ios && lang === 'km') ? 'sr' : 'rec');
+      MIC.canRec = e.data.canRec !== false;
+      micStart(lang, mode, e.data.maxSec);
+    }
+    if (e.data.type === 'tem-mic-stop') micStop(false);
+    /* keep the screen on while sharing live location (only the top page may ask for this) */
+    if (e.data.type === 'tem-wake') { WAKE.want = !!e.data.on; wakeApply(); }
+    /* location: Google's frame blocks it on Android, so the launcher (the top page) asks the phone */
+    if (e.data.type === 'tem-geo-get' || e.data.type === 'tem-geo-watch') {
+      var src = e.source, org = e.origin, rid = String(e.data.id || '');
+      var send = function (m) { try { src.postMessage(m, org); } catch (er) {} };
+      send({ type: 'tem-geo-ack', id: rid });
+      if (!navigator.geolocation) { send({ type: 'tem-geo-err', id: rid, error: 'unsupported' }); return; }
+      var ok = function (p) { send({ type: 'tem-geo-pos', id: rid, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, heading: p.coords.heading, speed: p.coords.speed, t: Date.now() }); };
+      var bad = function (er) { send({ type: 'tem-geo-err', id: rid, error: er && er.code === 1 ? 'denied' : (er && er.message) || 'error' }); };
+      var opts = { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 };
+      if (e.data.type === 'tem-geo-get') {
+        /* the first answer is often rough (Wi-Fi / towers): wait up to 7 s for GPS and send the best one */
+        var best = null, done = false, wid = null;
+        var fin = function () { if (done) return; done = true; try { navigator.geolocation.clearWatch(wid); } catch (er) {} if (best) ok(best); else bad({ message: 'timeout' }); };
+        wid = navigator.geolocation.watchPosition(function (p) { if (!best || p.coords.accuracy < best.coords.accuracy) best = p; if (best.coords.accuracy <= 25) fin(); },
+          function (er) { if (!best) { done = true; try { navigator.geolocation.clearWatch(wid); } catch (x) {} bad(er); } else fin(); }, opts);
+        setTimeout(fin, 7000);
+        return;
+      }
+      if (GEO.watch !== null) { try { navigator.geolocation.clearWatch(GEO.watch); } catch (er) {} GEO.watch = null; }
+      if (e.data.on) GEO.watch = navigator.geolocation.watchPosition(ok, bad, opts);
+    }
+    if (e.data.type === 'tem-mic-cancel') micStop(true);
+    /* keep the login (iPhone clears the app's storage inside the frame when the app is closed) */
+    if (e.data.type === 'tem-auth-save' && typeof e.data.token === 'string' && e.data.token.length < 400) { try { localStorage.setItem('tem_launcher_auth', e.data.token); } catch (er) {} }
+    if (e.data.type === 'tem-reload') {
+      APPWIN = null;
+      try { if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then(function (r) { if (r) r.update(); }).catch(function () {}); } catch (er) {}
+      frame.src = 'about:blank'; setTimeout(open, 80);
+    }
+    if (e.data.type === 'tem-auth-clear') { try { localStorage.removeItem('tem_launcher_auth'); } catch (er) {} kclear(); }
+    if (e.data.type === 'tem-auth-get') {
+      var tok = ''; try { tok = localStorage.getItem('tem_launcher_auth') || ''; } catch (er) {}
+      var src = e.source, org = e.origin;
+      (tok ? kall() : Promise.resolve({})).then(function (keep) { try { src.postMessage({ type: 'tem-auth', token: tok, keep: keep }, org); } catch (er) {} });
+    }
+    if (e.data.type === 'tem-keep' && KEEP_OK.test(String(e.data.key || '')) && typeof e.data.value === 'string' && e.data.value.length < 4000000) kput(e.data.key, e.data.value);
+    if (e.data.type === 'tem-bio-new') bioNew(e.source, e.origin, e.data);
+    if (e.data.type === 'tem-bio-get') bioGet(e.source, e.origin, e.data);
+    if (e.data.type === 'tem-bio-cancel') bioStop();
+  });
+  /* ---- a small store for the app's last data (IndexedDB on your own website) ---- */
+  var KEEP_OK = /^tem_(boot|av|chc_[a-z0-9._-]{1,30})$/, KDB = null;
+  function kdb() {
+    if (KDB) return KDB;
+    KDB = new Promise(function (ok, bad) {
+      try { var r = indexedDB.open('tem-keep', 1); r.onupgradeneeded = function () { r.result.createObjectStore('kv'); }; r.onsuccess = function () { ok(r.result); }; r.onerror = function () { bad(r.error); }; }
+      catch (er) { bad(er); }
+    });
+    return KDB;
+  }
+  function kput(k, v) { return kdb().then(function (db) { return new Promise(function (ok) { var t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = ok; t.onerror = ok; }); }).catch(function () {}); }
+  function kclear() { return kdb().then(function (db) { return new Promise(function (ok) { var t = db.transaction('kv', 'readwrite'); t.objectStore('kv').clear(); t.oncomplete = ok; t.onerror = ok; }); }).catch(function () {}); }
+  function kall() {
+    var read = kdb().then(function (db) {
+      return new Promise(function (ok) {
+        var out = {}, t = db.transaction('kv'), c = t.objectStore('kv').openCursor();
+        c.onsuccess = function () { var x = c.result; if (x) { if (KEEP_OK.test(String(x.key))) out[x.key] = x.value; x.continue(); } else ok(out); };
+        c.onerror = function () { ok(out); };
+      });
+    }).catch(function () { return {}; });
+    /* never hold up the login for long */
+    return Promise.race([read, new Promise(function (ok) { setTimeout(function () { ok({}); }, 900); })]);
+  }
+  /* ---- Face ID / fingerprint (WebAuthn on your own website; Google's frame cannot use it) ---- */
+  function b64u(buf) { var s = '', b = new Uint8Array(buf); for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function unb64u(t) { t = String(t).replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '='; var s = atob(t), b = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
+  function rnd(n) { var b = new Uint8Array(n); crypto.getRandomValues(b); return b; }
+  function bioOk() { return !!(window.PublicKeyCredential && navigator.credentials && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable); }
+  var BIO = { src: null, org: '', kind: '', data: null, n: 0, ac: null };
+  var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var ICO_FACE = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M9 9v1.5M15 9v1.5M12 9v4h-1M9 16c1.8 1.4 4.2 1.4 6 0"/></svg>';
+  var ICO_FINGER = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5A8 8 0 0 1 20 12v1M4 10.5A8 8 0 0 0 4 12c0 2 .5 3.5 1.2 5"/><path d="M8 12a4 4 0 0 1 8 0c0 2.7-.4 5.2-1.3 7.4M12 12c0 3.3-.8 6.2-2.4 8.4M8.3 15.5c-.2 1.5-.7 2.9-1.4 4"/></svg>';
+  /* a new request cancels an older one; answers of an old request are dropped */
+  function bioStart(src, org, kind, d) {
+    try { if (BIO.ac) BIO.ac.abort(); } catch (er) {}
+    BIO = { src: src, org: org, kind: kind, data: d, n: BIO.n + 1, ac: window.AbortController ? new AbortController() : null };
+    return BIO.n;
+  }
+  function bioSig() { return BIO.ac ? { signal: BIO.ac.signal } : {}; }
+  function bioReply(o, n) { if (n && n !== BIO.n) return; try { if (BIO.src) BIO.src.postMessage(Object.assign({ type: 'tem-bio-res' }, o), BIO.org); } catch (er) {} }
+  function bioHide() { $('bioSheet').classList.add('hidden'); }
+  function bioStop() { try { if (BIO.ac) BIO.ac.abort(); } catch (er) {} BIO.n++; BIO.src = null; BIO.kind = ''; bioHide(); }
+  function bioShow(kind) {
+    var what = IOS ? 'Face ID' : 'fingerprint / face unlock';
+    $('bioIco').innerHTML = IOS ? ICO_FACE : ICO_FINGER;
+    $('bioT').textContent = kind === 'new' ? 'Turn on ' + what : 'Unlock Trip Expense';
+    $('bioP').textContent = kind === 'new' ? 'Tap Continue, then confirm with ' + what + '.' : 'Tap the button and look at the phone / touch the sensor.';
+    $('bioGo').textContent = kind === 'new' ? 'Continue' : (IOS ? 'Unlock with Face ID' : 'Unlock');
+    $('bioNo').textContent = kind === 'new' ? 'Cancel' : 'Use PIN / pattern';
+    $('bioSheet').classList.remove('hidden');
+  }
+  function bioCreate() {
+    var d = BIO.data || {}, n = BIO.n;
+    return navigator.credentials.create(Object.assign({ publicKey: {
+      rp: { name: 'Trip Expense' }, user: { id: rnd(16), name: String(d.user || 'user').slice(0, 60), displayName: String(d.name || d.user || 'user').slice(0, 60) },
+      challenge: rnd(32), pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' }, timeout: 60000, attestation: 'none' } }, bioSig()))
+      .then(function (c) { if (n !== BIO.n) return; bioHide(); bioReply({ op: 'new', ok: true, id: b64u(c.rawId) }, n); });
+  }
+  function bioAssert() {
+    var d = BIO.data || {}, n = BIO.n;
+    return navigator.credentials.get(Object.assign({ publicKey: { challenge: rnd(32), allowCredentials: [{ type: 'public-key', id: unb64u(d.id) }], userVerification: 'required', timeout: 60000 } }, bioSig()))
+      .then(function () { if (n !== BIO.n) return; bioHide(); bioReply({ op: 'get', ok: true }, n); });
+  }
+  function bioNew(src, org, d) {
+    var n = bioStart(src, org, 'new', d);
+    if (!bioOk()) return bioReply({ op: 'new', ok: false, err: 'unsupported' }, n);
+    PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function (y) { if (!y) bioReply({ op: 'new', ok: false, err: 'unsupported' }, n); else if (n === BIO.n) bioShow('new'); })
+      .catch(function () { bioReply({ op: 'new', ok: false, err: 'unsupported' }, n); });
+  }
+  function bioGet(src, org, d) {
+    var n = bioStart(src, org, 'get', d);
+    if (!bioOk() || !/^[A-Za-z0-9_-]{16,700}$/.test(String(d.id || ''))) return bioReply({ op: 'get', ok: false, err: 'unsupported' }, n);
+    /* try at once (Android, newer iPhones allow it); if the phone wants a tap first, show the big button.
+       iPhone asks for a tap on the launcher itself: the tap in the app's frame does not count there */
+    var t0 = Date.now();
+    bioAssert().catch(function (er) {
+      if (n !== BIO.n) return;
+      var name = er && er.name;
+      if (Date.now() - t0 < 2500 && name !== 'AbortError') bioShow('get');
+      else { bioHide(); bioReply({ op: 'get', ok: false, err: name || 'fail' }, n); }
+    });
+  }
+  $('bioGo').onclick = function () {
+    var n = BIO.n;
+    if (!BIO.src || !BIO.kind) return bioHide();
+    /* the request must start inside this tap (iPhone), so nothing may run before it */
+    (BIO.kind === 'new' ? bioCreate() : bioAssert()).catch(function (er) { if (n !== BIO.n) return; bioHide(); bioReply({ op: BIO.kind, ok: false, err: (er && er.name) || 'fail' }, n); });
+  };
+  $('bioNo').onclick = function () { var n = BIO.n, k = BIO.kind; bioHide(); bioReply({ op: k, ok: false, err: 'cancel' }, n); try { if (BIO.ac) BIO.ac.abort(); } catch (er) {} };
+
+  /* ---- Android app (APK): explain the thin address bar. Android shows it when the website does not confirm the app
+     through /.well-known/assetlinks.json. Runs only inside the Android app, or with ?check=1 */
+  function twaPkg() {
+    var m = /^android-app:\/\/([A-Za-z0-9_.]+)/.exec(document.referrer || ''), p = m ? m[1] : '';
+    try { if (p) sessionStorage.setItem('tem_twa', p); else p = sessionStorage.getItem('tem_twa') || ''; } catch (er) {}
+    return p;
+  }
+  function twaShow(parts, state, force) {
+    var seen = ''; try { seen = localStorage.getItem('tem_twa_x') || ''; } catch (er) {}
+    if (!force && (seen === 'never' || seen.indexOf(state + '|') === 0 && Date.now() - Number(seen.split('|')[1]) < 3 * 864e5)) return;
+    var body = $('twaBody'); body.innerHTML = '';
+    parts.forEach(function (t) {
+      var p = document.createElement('p');
+      String(t).split('`').forEach(function (bit, i) { if (i % 2) { var c = document.createElement('code'); c.textContent = bit; p.appendChild(c); } else p.appendChild(document.createTextNode(bit)); });
+      body.appendChild(p);
+    });
+    $('twaSheet').classList.remove('hidden');
+    $('twaOk').onclick = function () { $('twaSheet').classList.add('hidden'); try { localStorage.setItem('tem_twa_x', state + '|' + Date.now()); } catch (er) {} };
+    $('twaNever').onclick = function () { $('twaSheet').classList.add('hidden'); try { localStorage.setItem('tem_twa_x', 'never'); } catch (er) {} };
+  }
+  function twaCheck() {
+    var force = /[?&]check=1(&|$)/.test(location.search), pkg = twaPkg();
+    if ((!pkg && !force) || navigator.onLine === false) return;
+    var url = location.origin + '/.well-known/assetlinks.json', app = pkg ? '`' + pkg + '`' : 'your app';
+    var fix = 'After a change: uninstall the app and install the APK again (Android checks the file when the app is installed).';
+    fetch(url, { cache: 'no-store' }).then(function (r) {
+      return r.text().then(function (t) { return { code: r.status, t: t }; });
+    }).then(function (x) {
+      var j = null; try { j = JSON.parse(x.t); } catch (er) {}
+      if (x.code !== 200 || (!j && /<html/i.test(x.t))) return twaShow([
+        'Android shows the address bar because this file was not found (' + x.code + '): `' + url + '`',
+        'Upload `assetlinks.json` from the PWABuilder ZIP into a folder named `.well-known` at the root of this website, and the empty file `.nojekyll` next to index.html.',
+        'With your own domain on GitHub Pages, both go into the repository that serves this domain.', fix], 'missing', force);
+      if (!Array.isArray(j)) return twaShow(['The file `' + url + '` is not valid. Paste the content of `assetlinks.json` from the PWABuilder ZIP exactly as it is (it starts with [ and ends with ]).', fix], 'bad', force);
+      var apps = j.filter(function (s) { return s && s.target && s.target.namespace === 'android_app'; });
+      var mine = apps.filter(function (s) { return !pkg || s.target.package_name === pkg; });
+      var names = apps.map(function (s) { return s.target.package_name; }).join(', ') || 'none';
+      if (!mine.length) return twaShow(['The file `' + url + '` does not list ' + app + '. It lists: `' + names + '`.',
+        'Use the assetlinks.json from the same PWABuilder ZIP as the APK you installed (the Package ID must be the same).', fix], 'package', force);
+      var rel = mine.some(function (s) { return Array.isArray(s.relation) && s.relation.indexOf('delegate_permission/common.handle_all_urls') !== -1; });
+      var fps = []; mine.forEach(function (s) { (s.target.sha256_cert_fingerprints || []).forEach(function (f) { fps.push(f); }); });
+      if (!rel || !fps.length) return twaShow(['The file `' + url + '` lists ' + app + ' but ' + (!rel ? 'without the relation `delegate_permission/common.handle_all_urls`' : 'without a SHA-256 fingerprint') + '.', 'Paste the content from PWABuilder again.', fix], 'parts', force);
+      if (force) twaShow(['✅ The file is in place and lists ' + app + ' with ' + fps.length + ' fingerprint(s): `' + fps.map(function (f) { return String(f).slice(0, 23) + '…'; }).join(' / ') + '`',
+        'If the bar still shows: the fingerprint must be the SHA-256 in `signing-key-info.txt` from PWABuilder. If the app came from Google Play, also add the "App signing key" SHA-256 from Play Console → App integrity.', fix], 'ok', true);
+    }).catch(function () { if (force) twaShow(['Could not check `' + url + '` (no connection?).'], 'net', true); });
+  }
+  setTimeout(twaCheck, 2500);
+  var ntfX = false; try { ntfX = !!localStorage.getItem('tem_launcher_ntfx'); } catch (e) {}
+  if ('Notification' in window && Notification.permission === 'default' && standalone() && !ntfX) setTimeout(function () { $('ntfBar').classList.remove('hidden'); }, 4000);
+  $('ntfBtn').onclick = function () {
+    $('ntfBar').classList.add('hidden');
+    try { Notification.requestPermission().then(function (p) { if (p === 'granted') pushToken(); else if (p === 'denied') toApp({ type: 'tem-push-state', state: 'denied' }); }); } catch (e) {}
+  };
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
+  /* service worker (needed for "Install app" on Android) */
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+  open();
+})();
+</script>
+</body>
+</html>
