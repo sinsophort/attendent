@@ -1,8 +1,0 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "online.go7partner.twa",
-        "sha256_cert_fingerprints": ["2B:70:F4:02:5F:7C:38:7C:CB:CA:F1:F7:D2:98:62:87:DA:A2:B4:66:16:A2:CF:5D:1E:07:E1:FB:D1:FB:EA:C6"]
-      }
-    }]
