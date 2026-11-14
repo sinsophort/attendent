@@ -37,6 +37,15 @@
   .bar { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 6; display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 14px; color: #fff; background: rgba(15, 23, 42, .92); font-size: 13.5px; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
   .bar span { flex: 1; } .bar button { border: 0; background: #fff; color: #1e3a8a; border-radius: 10px; padding: 8px 12px; font: inherit; font-weight: 600; cursor: pointer; }
   .bar .x { background: transparent; color: #fff; font-size: 18px; padding: 4px 6px; }
+  .bio-ico { width: 104px; height: 104px; margin: 0 auto 6px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .14);
+    box-shadow: 0 0 0 10px rgba(255, 255, 255, .06), 0 16px 40px rgba(0, 0, 0, .25); animation: bioPulse 2.2s ease-in-out infinite; }
+  .bio-ico svg { width: 58px; height: 58px; }
+  @keyframes bioPulse { 50% { box-shadow: 0 0 0 18px rgba(255, 255, 255, .08), 0 16px 40px rgba(0, 0, 0, .25); } }
+  #bioGo { font-size: 17px; padding: 15px 30px; border-radius: 99px; min-width: 220px; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+  #twaSheet .box { text-align: left; background: rgba(255, 255, 255, .1); border-radius: 18px; padding: 18px; }
+  #twaSheet h1 { text-align: center; } #twaSheet p { font-size: 14px; } #twaSheet code { word-break: break-all; background: rgba(0, 0, 0, .25); padding: 1px 5px; border-radius: 6px; }
+  #twaSheet .acts { text-align: center; margin-top: 10px; }
+  @media (prefers-reduced-motion: reduce) { .bio-ico { animation: none; } }
 </style>
 </head>
 <body>
@@ -65,10 +74,15 @@
 <div id="installBar" class="bar hidden"><span>📲 Trip Expense</span><button type="button" id="installBtn">Install app</button><button type="button" class="x" data-x="installBar" title="Close">✕</button></div>
 <div id="ntfBar" class="bar hidden"><span>🔔 Turn on alerts and the number badge on the app icon</span><button type="button" id="ntfBtn">Turn on</button><button type="button" class="x" data-x="ntfBar" title="Close">✕</button></div>
 <div id="bioSheet" class="layer hidden" style="z-index:7"><div class="box">
-  <img class="logo" src="icon-192.png" alt="">
+  <div class="bio-ico" id="bioIco"></div>
   <h1 id="bioT">Unlock</h1><p id="bioP"></p>
-  <button class="btn" type="button" id="bioGo">🙂 Continue</button><br>
+  <button class="btn" type="button" id="bioGo">Continue</button><br>
   <button class="btn ghost" type="button" id="bioNo">Cancel</button>
+</div></div>
+<div id="twaSheet" class="layer hidden" style="z-index:8"><div class="box">
+  <h1>📲 Address bar in the app</h1>
+  <div id="twaBody"></div>
+  <div class="acts"><button class="btn" type="button" id="twaOk">OK</button> <button class="btn ghost" type="button" id="twaNever">Don't show again</button></div>
 </div></div>
 <div id="iosBar" class="bar hidden"><span>📲 To install: tap Share ⬆️ → Add to Home Screen ➕</span><button type="button" class="x" data-x="iosBar" title="Close">✕</button></div>
 
@@ -369,7 +383,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (e.data.type === 'tem-keep' && KEEP_OK.test(String(e.data.key || '')) && typeof e.data.value === 'string' && e.data.value.length < 4000000) kput(e.data.key, e.data.value);
     if (e.data.type === 'tem-bio-new') bioNew(e.source, e.origin, e.data);
     if (e.data.type === 'tem-bio-get') bioGet(e.source, e.origin, e.data);
-    if (e.data.type === 'tem-bio-cancel') bioHide();
+    if (e.data.type === 'tem-bio-cancel') bioStop();
   });
   /* ---- a small store for the app's last data (IndexedDB on your own website) ---- */
   var KEEP_OK = /^tem_(boot|av|chc_[a-z0-9._-]{1,30})$/, KDB = null;
@@ -399,47 +413,116 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   function unb64u(t) { t = String(t).replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '='; var s = atob(t), b = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
   function rnd(n) { var b = new Uint8Array(n); crypto.getRandomValues(b); return b; }
   function bioOk() { return !!(window.PublicKeyCredential && navigator.credentials && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable); }
-  var BIO = { src: null, org: '', kind: '', data: null };
-  function bioReply(o) { try { if (BIO.src) BIO.src.postMessage(Object.assign({ type: 'tem-bio-res' }, o), BIO.org); } catch (er) {} }
+  var BIO = { src: null, org: '', kind: '', data: null, n: 0, ac: null };
+  var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var ICO_FACE = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M9 9v1.5M15 9v1.5M12 9v4h-1M9 16c1.8 1.4 4.2 1.4 6 0"/></svg>';
+  var ICO_FINGER = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5A8 8 0 0 1 20 12v1M4 10.5A8 8 0 0 0 4 12c0 2 .5 3.5 1.2 5"/><path d="M8 12a4 4 0 0 1 8 0c0 2.7-.4 5.2-1.3 7.4M12 12c0 3.3-.8 6.2-2.4 8.4M8.3 15.5c-.2 1.5-.7 2.9-1.4 4"/></svg>';
+  /* a new request cancels an older one; answers of an old request are dropped */
+  function bioStart(src, org, kind, d) {
+    try { if (BIO.ac) BIO.ac.abort(); } catch (er) {}
+    BIO = { src: src, org: org, kind: kind, data: d, n: BIO.n + 1, ac: window.AbortController ? new AbortController() : null };
+    return BIO.n;
+  }
+  function bioSig() { return BIO.ac ? { signal: BIO.ac.signal } : {}; }
+  function bioReply(o, n) { if (n && n !== BIO.n) return; try { if (BIO.src) BIO.src.postMessage(Object.assign({ type: 'tem-bio-res' }, o), BIO.org); } catch (er) {} }
   function bioHide() { $('bioSheet').classList.add('hidden'); }
+  function bioStop() { try { if (BIO.ac) BIO.ac.abort(); } catch (er) {} BIO.n++; BIO.src = null; BIO.kind = ''; bioHide(); }
   function bioShow(kind) {
-    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    var what = ios ? 'Face ID' : 'fingerprint / face unlock';
+    var what = IOS ? 'Face ID' : 'fingerprint / face unlock';
+    $('bioIco').innerHTML = IOS ? ICO_FACE : ICO_FINGER;
     $('bioT').textContent = kind === 'new' ? 'Turn on ' + what : 'Unlock Trip Expense';
-    $('bioP').textContent = kind === 'new' ? 'Tap Continue, then confirm with ' + what + '.' : 'Tap to unlock with ' + what + '.';
-    $('bioGo').textContent = kind === 'new' ? '🙂 Continue' : '🙂 Unlock';
+    $('bioP').textContent = kind === 'new' ? 'Tap Continue, then confirm with ' + what + '.' : 'Tap the button and look at the phone / touch the sensor.';
+    $('bioGo').textContent = kind === 'new' ? 'Continue' : (IOS ? 'Unlock with Face ID' : 'Unlock');
     $('bioNo').textContent = kind === 'new' ? 'Cancel' : 'Use PIN / pattern';
     $('bioSheet').classList.remove('hidden');
   }
   function bioCreate() {
-    var d = BIO.data || {};
-    return navigator.credentials.create({ publicKey: {
+    var d = BIO.data || {}, n = BIO.n;
+    return navigator.credentials.create(Object.assign({ publicKey: {
       rp: { name: 'Trip Expense' }, user: { id: rnd(16), name: String(d.user || 'user').slice(0, 60), displayName: String(d.name || d.user || 'user').slice(0, 60) },
       challenge: rnd(32), pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' }, timeout: 60000, attestation: 'none' } })
-      .then(function (c) { bioHide(); bioReply({ op: 'new', ok: true, id: b64u(c.rawId) }); });
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' }, timeout: 60000, attestation: 'none' } }, bioSig()))
+      .then(function (c) { if (n !== BIO.n) return; bioHide(); bioReply({ op: 'new', ok: true, id: b64u(c.rawId) }, n); });
   }
   function bioAssert() {
-    var d = BIO.data || {};
-    return navigator.credentials.get({ publicKey: { challenge: rnd(32), allowCredentials: [{ type: 'public-key', id: unb64u(d.id) }], userVerification: 'required', timeout: 60000 } })
-      .then(function () { bioHide(); bioReply({ op: 'get', ok: true }); });
+    var d = BIO.data || {}, n = BIO.n;
+    return navigator.credentials.get(Object.assign({ publicKey: { challenge: rnd(32), allowCredentials: [{ type: 'public-key', id: unb64u(d.id) }], userVerification: 'required', timeout: 60000 } }, bioSig()))
+      .then(function () { if (n !== BIO.n) return; bioHide(); bioReply({ op: 'get', ok: true }, n); });
   }
   function bioNew(src, org, d) {
-    BIO = { src: src, org: org, kind: 'new', data: d };
-    if (!bioOk()) return bioReply({ op: 'new', ok: false, err: 'unsupported' });
-    PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function (y) { if (!y) bioReply({ op: 'new', ok: false, err: 'unsupported' }); else bioShow('new'); });
+    var n = bioStart(src, org, 'new', d);
+    if (!bioOk()) return bioReply({ op: 'new', ok: false, err: 'unsupported' }, n);
+    PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function (y) { if (!y) bioReply({ op: 'new', ok: false, err: 'unsupported' }, n); else if (n === BIO.n) bioShow('new'); })
+      .catch(function () { bioReply({ op: 'new', ok: false, err: 'unsupported' }, n); });
   }
   function bioGet(src, org, d) {
-    BIO = { src: src, org: org, kind: 'get', data: d };
-    if (!bioOk() || !/^[A-Za-z0-9_-]{16,700}$/.test(String(d.id || ''))) return bioReply({ op: 'get', ok: false, err: 'unsupported' });
-    /* try at once (Android allows it); if the phone wants a tap first (iPhone), show the button */
+    var n = bioStart(src, org, 'get', d);
+    if (!bioOk() || !/^[A-Za-z0-9_-]{16,700}$/.test(String(d.id || ''))) return bioReply({ op: 'get', ok: false, err: 'unsupported' }, n);
+    /* try at once (Android, newer iPhones allow it); if the phone wants a tap first, show the big button.
+       iPhone asks for a tap on the launcher itself: the tap in the app's frame does not count there */
     var t0 = Date.now();
-    bioAssert().catch(function (er) { if (Date.now() - t0 < 1500 && er && er.name === 'NotAllowedError') bioShow('get'); else { bioHide(); bioReply({ op: 'get', ok: false, err: er && er.name }); } });
+    bioAssert().catch(function (er) {
+      if (n !== BIO.n) return;
+      var name = er && er.name;
+      if (Date.now() - t0 < 2500 && name !== 'AbortError') bioShow('get');
+      else { bioHide(); bioReply({ op: 'get', ok: false, err: name || 'fail' }, n); }
+    });
   }
   $('bioGo').onclick = function () {
-    (BIO.kind === 'new' ? bioCreate() : bioAssert()).catch(function (er) { bioHide(); bioReply({ op: BIO.kind, ok: false, err: er && er.name }); });
+    var n = BIO.n;
+    if (!BIO.src || !BIO.kind) return bioHide();
+    /* the request must start inside this tap (iPhone), so nothing may run before it */
+    (BIO.kind === 'new' ? bioCreate() : bioAssert()).catch(function (er) { if (n !== BIO.n) return; bioHide(); bioReply({ op: BIO.kind, ok: false, err: (er && er.name) || 'fail' }, n); });
   };
-  $('bioNo').onclick = function () { bioHide(); bioReply({ op: BIO.kind, ok: false, err: 'cancel' }); };
+  $('bioNo').onclick = function () { var n = BIO.n, k = BIO.kind; bioHide(); bioReply({ op: k, ok: false, err: 'cancel' }, n); try { if (BIO.ac) BIO.ac.abort(); } catch (er) {} };
+
+  /* ---- Android app (APK): explain the thin address bar. Android shows it when the website does not confirm the app
+     through /.well-known/assetlinks.json. Runs only inside the Android app, or with ?check=1 */
+  function twaPkg() {
+    var m = /^android-app:\/\/([A-Za-z0-9_.]+)/.exec(document.referrer || ''), p = m ? m[1] : '';
+    try { if (p) sessionStorage.setItem('tem_twa', p); else p = sessionStorage.getItem('tem_twa') || ''; } catch (er) {}
+    return p;
+  }
+  function twaShow(parts, state, force) {
+    var seen = ''; try { seen = localStorage.getItem('tem_twa_x') || ''; } catch (er) {}
+    if (!force && (seen === 'never' || seen.indexOf(state + '|') === 0 && Date.now() - Number(seen.split('|')[1]) < 3 * 864e5)) return;
+    var body = $('twaBody'); body.innerHTML = '';
+    parts.forEach(function (t) {
+      var p = document.createElement('p');
+      String(t).split('`').forEach(function (bit, i) { if (i % 2) { var c = document.createElement('code'); c.textContent = bit; p.appendChild(c); } else p.appendChild(document.createTextNode(bit)); });
+      body.appendChild(p);
+    });
+    $('twaSheet').classList.remove('hidden');
+    $('twaOk').onclick = function () { $('twaSheet').classList.add('hidden'); try { localStorage.setItem('tem_twa_x', state + '|' + Date.now()); } catch (er) {} };
+    $('twaNever').onclick = function () { $('twaSheet').classList.add('hidden'); try { localStorage.setItem('tem_twa_x', 'never'); } catch (er) {} };
+  }
+  function twaCheck() {
+    var force = /[?&]check=1(&|$)/.test(location.search), pkg = twaPkg();
+    if ((!pkg && !force) || navigator.onLine === false) return;
+    var url = location.origin + '/.well-known/assetlinks.json', app = pkg ? '`' + pkg + '`' : 'your app';
+    var fix = 'After a change: uninstall the app and install the APK again (Android checks the file when the app is installed).';
+    fetch(url, { cache: 'no-store' }).then(function (r) {
+      return r.text().then(function (t) { return { code: r.status, t: t }; });
+    }).then(function (x) {
+      var j = null; try { j = JSON.parse(x.t); } catch (er) {}
+      if (x.code !== 200 || (!j && /<html/i.test(x.t))) return twaShow([
+        'Android shows the address bar because this file was not found (' + x.code + '): `' + url + '`',
+        'Upload `assetlinks.json` from the PWABuilder ZIP into a folder named `.well-known` at the root of this website, and the empty file `.nojekyll` next to index.html.',
+        'With your own domain on GitHub Pages, both go into the repository that serves this domain.', fix], 'missing', force);
+      if (!Array.isArray(j)) return twaShow(['The file `' + url + '` is not valid. Paste the content of `assetlinks.json` from the PWABuilder ZIP exactly as it is (it starts with [ and ends with ]).', fix], 'bad', force);
+      var apps = j.filter(function (s) { return s && s.target && s.target.namespace === 'android_app'; });
+      var mine = apps.filter(function (s) { return !pkg || s.target.package_name === pkg; });
+      var names = apps.map(function (s) { return s.target.package_name; }).join(', ') || 'none';
+      if (!mine.length) return twaShow(['The file `' + url + '` does not list ' + app + '. It lists: `' + names + '`.',
+        'Use the assetlinks.json from the same PWABuilder ZIP as the APK you installed (the Package ID must be the same).', fix], 'package', force);
+      var rel = mine.some(function (s) { return Array.isArray(s.relation) && s.relation.indexOf('delegate_permission/common.handle_all_urls') !== -1; });
+      var fps = []; mine.forEach(function (s) { (s.target.sha256_cert_fingerprints || []).forEach(function (f) { fps.push(f); }); });
+      if (!rel || !fps.length) return twaShow(['The file `' + url + '` lists ' + app + ' but ' + (!rel ? 'without the relation `delegate_permission/common.handle_all_urls`' : 'without a SHA-256 fingerprint') + '.', 'Paste the content from PWABuilder again.', fix], 'parts', force);
+      if (force) twaShow(['✅ The file is in place and lists ' + app + ' with ' + fps.length + ' fingerprint(s): `' + fps.map(function (f) { return String(f).slice(0, 23) + '…'; }).join(' / ') + '`',
+        'If the bar still shows: the fingerprint must be the SHA-256 in `signing-key-info.txt` from PWABuilder. If the app came from Google Play, also add the "App signing key" SHA-256 from Play Console → App integrity.', fix], 'ok', true);
+    }).catch(function () { if (force) twaShow(['Could not check `' + url + '` (no connection?).'], 'net', true); });
+  }
+  setTimeout(twaCheck, 2500);
   var ntfX = false; try { ntfX = !!localStorage.getItem('tem_launcher_ntfx'); } catch (e) {}
   if ('Notification' in window && Notification.permission === 'default' && standalone() && !ntfX) setTimeout(function () { $('ntfBar').classList.remove('hidden'); }, 4000);
   $('ntfBtn').onclick = function () {
