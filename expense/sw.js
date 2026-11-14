@@ -1,6 +1,6 @@
 /* Trip Expense Manager — PWA Launcher service worker: caches only the launcher shell.
    The app itself (Google Apps Script) is always loaded live from Google. */
-var CACHE = 'trip-launcher-v18';
+var CACHE = 'trip-launcher-v19';
 var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'badge-96.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
@@ -46,8 +46,11 @@ self.addEventListener('notificationclick', function (e) {
      which the launcher reads the moment it comes to the front */
   var keep = go ? caches.open('tem-badge').then(function (c) { return c.put('go', new Response(JSON.stringify({ go: go, msg: msg, t: Date.now() }))); }).catch(function () {}) : Promise.resolve();
   e.waitUntil(keep.then(function () { return self.clients.matchAll({ type: 'window', includeUncontrolled: true }); }).then(function (list) {
-    for (var i = 0; i < list.length; i++) {
-      if ('focus' in list[i]) { if (go) list[i].postMessage({ type: 'tem-go', go: go, msg: msg }); return list[i].focus(); }
+    /* tell every open window (iPhone may list the app more than once), then bring one to the front */
+    var win = list.filter(function (c) { return 'focus' in c; });
+    if (win.length) {
+      if (go) win.forEach(function (c) { try { c.postMessage({ type: 'tem-go', go: go, msg: msg }); } catch (er) {} });
+      return win[0].focus().catch(function () {});
     }
     return self.clients.openWindow ? self.clients.openWindow('./' + (go ? '?go=' + encodeURIComponent(go) + (msg ? '&gm=' + encodeURIComponent(msg) : '') : '')) : null;
   }));

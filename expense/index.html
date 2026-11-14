@@ -297,10 +297,18 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       }).catch(function () {});
     } catch (e) {}
   }
-  goFromCache();
-  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') goFromCache(); });
-  window.addEventListener('focus', goFromCache);
-  window.addEventListener('pageshow', goFromCache);
+  /* iPhone brings the app to the front first and runs the service worker's "tap" a moment later:
+     look for the target again during the next few seconds, not only once */
+  var GO_T = [];
+  function goWatch() {
+    goFromCache();
+    GO_T.forEach(clearTimeout); GO_T = [];
+    [300, 700, 1200, 2000, 3200, 5000, 8000].forEach(function (ms) { GO_T.push(setTimeout(goFromCache, ms)); });
+  }
+  goWatch();
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') goWatch(); });
+  window.addEventListener('focus', goWatch);
+  window.addEventListener('pageshow', goWatch);
   /* save a photo or file from the app to the phone (Google's frame may not be allowed to download) */
   function saveFile(blob, name) {
     if (!(blob instanceof Blob)) return;
