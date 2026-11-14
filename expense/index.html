@@ -374,7 +374,14 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       try { if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then(function (r) { if (r) r.update(); }).catch(function () {}); } catch (er) {}
       frame.src = 'about:blank'; setTimeout(open, 80);
     }
+    /* signing out: the sign-in and the quick-start copy go; the locked store stays for the same account */
     if (e.data.type === 'tem-auth-clear') { try { localStorage.removeItem('tem_launcher_auth'); } catch (er) {} kclear(); }
+    if (e.data.type === 'tem-sput' && SKEY.test(String(e.data.key || '')) && sOk(e.data.value)) sput(e.data.key, e.data.value);
+    if (e.data.type === 'tem-sdel') { if (e.data.all === true) sdel(); else if (SKEY.test(String(e.data.key || ''))) sdel(e.data.key); }
+    if (e.data.type === 'tem-sget' && SKEY.test(String(e.data.key || ''))) {
+      var ssrc = e.source, sorg = e.origin, srid = String(e.data.rid || '').slice(0, 20);
+      sget(e.data.key).then(function (v) { try { ssrc.postMessage({ type: 'tem-sres', rid: srid, value: v }, sorg); } catch (er) {} });
+    }
     if (e.data.type === 'tem-auth-get') {
       var tok = ''; try { tok = localStorage.getItem('tem_launcher_auth') || ''; } catch (er) {}
       var src = e.source, org = e.origin;
@@ -408,6 +415,37 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     /* never hold up the login for long */
     return Promise.race([read, new Promise(function (ok) { setTimeout(function () { ok({}); }, 900); })]);
   }
+  /* ---- a second copy of the app's chat history, photos, voice messages, files and receipts (iPhone empties the
+     app's own storage inside Google's frame when the app is closed). Everything arrives locked (AES-GCM) with a key
+     only the account has, so it can stay after signing out; "Clear saved data" in the app removes it. ---- */
+  var SKEY = /^(f|rc|ch|v):[A-Za-z0-9_.@:-]{1,140}$/, SDB = null;
+  try { indexedDB.deleteDatabase('tem-store'); } catch (er) {}
+  function sdb() {
+    if (SDB) return SDB;
+    SDB = new Promise(function (ok, bad) {
+      try { var r = indexedDB.open('tem-store2', 1); r.onupgradeneeded = function () { r.result.createObjectStore('s').createIndex('t', 't'); }; r.onsuccess = function () { ok(r.result); }; r.onerror = function () { bad(r.error); }; }
+      catch (er) { bad(er); }
+    });
+    SDB.catch(function () { SDB = null; });
+    return SDB;
+  }
+  /* only locked items: { enc: 2, iv, j: ArrayBuffer, (iv2, b: ArrayBuffer) } */
+  function sOk(v) {
+    if (!v || typeof v !== 'object' || v.enc !== 2) return false;
+    if (!(v.j instanceof ArrayBuffer) || v.j.byteLength > 4 * 1048576) return false;
+    if (v.b !== undefined && !(v.b instanceof ArrayBuffer && v.b.byteLength < 30 * 1048576)) return false;
+    return true;
+  }
+  function sput(k, v) {
+    sdb().then(function (db) {
+      var t = db.transaction('s', 'readwrite'), st = t.objectStore('s');
+      st.put({ v: v, t: Date.now() }, k);
+      /* keep at most 1,500 entries: the oldest go first */
+      var c = st.count(); c.onsuccess = function () { var extra = c.result - 1500; if (extra > 0) { var cur = st.index('t').openCursor(); cur.onsuccess = function () { var x = cur.result; if (x && extra-- > 0) { x.delete(); x.continue(); } }; } };
+    }).catch(function () {});
+  }
+  function sget(k) { return sdb().then(function (db) { return new Promise(function (ok) { var q = db.transaction('s').objectStore('s').get(k); q.onsuccess = function () { ok(q.result ? q.result.v : null); }; q.onerror = function () { ok(null); }; }); }).catch(function () { return null; }); }
+  function sdel(k) { sdb().then(function (db) { var st = db.transaction('s', 'readwrite').objectStore('s'); if (k) st.delete(k); else st.clear(); }).catch(function () {}); }
   /* ---- Face ID / fingerprint (WebAuthn on your own website; Google's frame cannot use it) ---- */
   function b64u(buf) { var s = '', b = new Uint8Array(buf); for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
   function unb64u(t) { t = String(t).replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '='; var s = atob(t), b = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
