@@ -1,6 +1,6 @@
 /* Trip Expense Manager — PWA Launcher service worker: caches only the launcher shell.
    The app itself (Google Apps Script) is always loaded live from Google. */
-var CACHE = 'trip-launcher-v19';
+var CACHE = 'trip-launcher-v20';
 var SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png', 'badge-96.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
@@ -31,11 +31,13 @@ self.addEventListener('push', function (e) {
       /* icon = the big picture (the app icon); badge = the small status-bar icon: Android needs it white on transparent,
          otherwise it shows a plain white square */
       body: String(m.body || '').slice(0, 500), icon: 'icon-192.png', badge: 'badge-96.png', tag: m.tag || ('tem-' + Date.now()), renotify: true,
+      /* an incoming call stays on screen and vibrates longer (Android) */
+      requireInteraction: /^call:/.test(String(m.go || '')), vibrate: /^call:/.test(String(m.go || '')) ? [500, 250, 500, 250, 500] : undefined,
       data: { go: validGo(m.go), msg: typeof m.msg === 'string' ? m.msg.slice(0, 2500) : '' }
     });
   }));
 });
-function validGo(g) { return /^(chat|exp|req|page):[A-Za-z0-9@_-]{1,90}$/.test(String(g || '')) ? String(g) : ''; }
+function validGo(g) { return /^(chat|exp|req|page|call):[A-Za-z0-9@_-]{1,90}$/.test(String(g || '')) ? String(g) : ''; }
 /* tapping an alert opens (or focuses) the app and goes straight to that expense / request / chat */
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();

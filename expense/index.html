@@ -46,6 +46,42 @@
   #twaSheet h1 { text-align: center; } #twaSheet p { font-size: 14px; } #twaSheet code { word-break: break-all; background: rgba(0, 0, 0, .25); padding: 1px 5px; border-radius: 6px; }
   #twaSheet .acts { text-align: center; margin-top: 10px; }
   @media (prefers-reduced-motion: reduce) { .bio-ico { animation: none; } }
+  /* 1.1.33: call screen, save sheet */
+  #callView { position: fixed; inset: 0; z-index: 9; background: radial-gradient(120% 80% at 50% 0%, #334155, #0b1220 70%); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    padding: calc(44px + env(safe-area-inset-top, 0px)) 20px calc(36px + env(safe-area-inset-bottom, 0px)); overflow: hidden; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  #cvRemote { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; display: none; }
+  #callView.has-remote #cvRemote { display: block; }
+  .cv-shade { position: absolute; inset: 0; background: linear-gradient(rgba(0, 0, 0, .5), transparent 28%, transparent 68%, rgba(0, 0, 0, .6)); display: none; pointer-events: none; }
+  #callView.has-remote .cv-shade { display: block; }
+  .cv-top { position: relative; text-align: center; margin-top: 6vh; }
+  #callView.has-remote .cv-top { margin-top: 0; } #callView.has-remote .cv-av { display: none; }
+  .cv-av { width: 112px; height: 112px; border-radius: 50%; margin: 0 auto 16px; display: grid; place-items: center; font-size: 40px; font-weight: 800; overflow: hidden;
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, .06), 0 18px 40px rgba(0, 0, 0, .4); }
+  #callView:not(.live) .cv-av { animation: cvPulse 1.8s ease-in-out infinite; }
+  @keyframes cvPulse { 50% { box-shadow: 0 0 0 20px rgba(255, 255, 255, .08), 0 18px 40px rgba(0, 0, 0, .4); } }
+  .cv-av img { width: 100%; height: 100%; object-fit: cover; }
+  #cvName { font-size: 26px; margin: 0 0 6px; font-weight: 700; }
+  #cvSt { opacity: .88; font-size: 15px; margin: 0; min-height: 20px; }
+  .cv-time { font-variant-numeric: tabular-nums; font-size: 16px; opacity: .92; margin: 4px 0 0; }
+  #cvLocal { position: absolute; right: 14px; top: calc(14px + env(safe-area-inset-top, 0px)); width: 28vw; max-width: 140px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 14px;
+    background: #111; box-shadow: 0 8px 24px rgba(0, 0, 0, .4); transform: scaleX(-1); display: none; z-index: 1; }
+  #callView.video #cvLocal { display: block; } #callView.video.incoming #cvLocal { display: none; } #cvLocal.back { transform: none; } #cvLocal.off { opacity: .15; }
+  .cv-btns { position: relative; display: flex; gap: 22px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .cv-b { border: 0; background: none; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 8px; font: inherit; cursor: pointer; padding: 0; }
+  .cv-b span { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .18); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: transform .12s; }
+  .cv-b:active span { transform: scale(.9); }
+  .cv-b svg { width: 28px; height: 28px; } .cv-b small { font-size: 12.5px; opacity: .92; }
+  .cv-b.on span { background: #fff; color: #0b1220; }
+  .cv-b.red span { background: #ef4444; } .cv-b.green span { background: #22c55e; }
+  #callView.incoming .cv-btns { gap: 84px; }
+  #callView.incoming .cv-b.green span { animation: cvRing 1.3s ease-in-out infinite; }
+  @keyframes cvRing { 0%, 60%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(-14deg); } 20%, 40% { transform: rotate(14deg); } }
+  #callView.closing .cv-btns { visibility: hidden; }
+  .cv-top, .cv-btns { z-index: 2; }
+  /* a video call that is not connected yet: my camera fills the screen behind the name (like Messenger) */
+  #callView.video:not(.has-remote):not(.incoming) #cvLocal { inset: 0; top: 0; right: 0; width: 100%; height: 100%; max-width: none; aspect-ratio: auto; border-radius: 0; box-shadow: none; z-index: 0; }
+  #callView.video:not(.has-remote):not(.incoming) .cv-shade { display: block; z-index: 1; }
+  @media (prefers-reduced-motion: reduce) { #callView .cv-av, #callView .cv-b span { animation: none !important; } }
 </style>
 </head>
 <body>
@@ -84,6 +120,18 @@
   <div id="twaBody"></div>
   <div class="acts"><button class="btn" type="button" id="twaOk">OK</button> <button class="btn ghost" type="button" id="twaNever">Don't show again</button></div>
 </div></div>
+<div id="saveSheet" class="layer hidden" style="z-index:8"><div class="box">
+  <div class="bio-ico"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M5 20h14v-2H5v2zm7-18-5.5 5.5 1.4 1.4L11 5.8V16h2V5.8l3.1 3.1 1.4-1.4L12 2z" transform="rotate(180 12 11)"/></svg></div>
+  <h1 id="saveT">Save</h1><p>Tap Save, then choose “Save Image” or “Save Video” — it goes to Photos.</p>
+  <button class="btn" type="button" id="saveGo">Save</button><br>
+  <button class="btn ghost" type="button" id="saveNo">Cancel</button>
+</div></div>
+<div id="callView" class="hidden" role="dialog" aria-modal="true" aria-label="Call">
+  <video id="cvRemote" playsinline autoplay></video><audio id="cvAudio" autoplay playsinline></audio><div class="cv-shade"></div>
+  <div class="cv-top"><div class="cv-av" id="cvAv"></div><h2 id="cvName"></h2><p id="cvSt"></p><p id="cvTime" class="cv-time"></p></div>
+  <video id="cvLocal" playsinline autoplay muted></video>
+  <div class="cv-btns" id="cvBtns"></div>
+</div>
 <div id="iosBar" class="bar hidden"><span>📲 To install: tap Share ⬆️ → Add to Home Screen ➕</span><button type="button" class="x" data-x="iosBar" title="Close">✕</button></div>
 
 <script src="config.js"></script>
@@ -193,7 +241,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     } catch (e) {}
   }
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') wakeApply(); });
-  var MIC = { src: null, origin: '*', mr: null, stream: null, sr: null, chunks: [], cancel: false, timer: null };
+  var MIC = { src: null, origin: '*', mr: null, stream: null, sr: null, chunks: [], cancel: false, timer: null, levels: false, meter: null, ac: null };
   function micReply(m) { try { if (MIC.src) MIC.src.postMessage(m, MIC.origin); } catch (e) {} }
   function micStart(lang, mode, maxSec) {
     micStop(true); MIC.cancel = false; MIC.maxSec = Math.max(5, Math.min(180, Number(maxSec) || 30));
@@ -226,10 +274,11 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       for (var i = 0; i < types.length; i++) { try { if (MediaRecorder.isTypeSupported(types[i])) { type = types[i]; break; } } catch (e) {} }
       var mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
       MIC.stream = stream; MIC.mr = mr; MIC.chunks = [];
+      if (MIC.levels) micMeter(stream);
       mr.ondataavailable = function (ev) { if (ev.data && ev.data.size) MIC.chunks.push(ev.data); };
       mr.onstop = function () {
         stream.getTracks().forEach(function (t) { t.stop(); });
-        MIC.mr = null; MIC.stream = null; clearTimeout(MIC.timer);
+        MIC.mr = null; MIC.stream = null; clearTimeout(MIC.timer); micMeterStop();
         if (MIC.cancel) return;
         var blob = new Blob(MIC.chunks, { type: (mr.mimeType || type || 'audio/webm').split(';')[0] });
         var fr = new FileReader();
@@ -241,7 +290,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     }).catch(function (err) { micReply({ type: 'tem-mic-error', error: (err && (err.name || err.message)) || 'error' }); });
   }
   function micStop(cancel) {
-    MIC.cancel = !!cancel; clearTimeout(MIC.timer);
+    MIC.cancel = !!cancel; clearTimeout(MIC.timer); micMeterStop();
     try { if (MIC.sr) MIC.sr.stop(); } catch (e) {}
     try { if (MIC.mr && MIC.mr.state !== 'inactive') MIC.mr.stop(); } catch (e) {}
     if (cancel && MIC.stream) { MIC.stream.getTracks().forEach(function (t) { t.stop(); }); MIC.stream = null; }
@@ -262,7 +311,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     setTimeout(function () { if (Notification.permission === 'default' && !shown) { shown = true; $('ntfBar').classList.remove('hidden'); } }, 1200);
   }
   /* "open this place" from a tapped notification: ?go=… on start, or a message from the service worker */
-  function validGo(g) { return /^(chat|exp|req|page):[A-Za-z0-9@_-]{1,90}$/.test(String(g || '')) ? String(g) : ''; }
+  function validGo(g) { return /^(chat|exp|req|page|call):[A-Za-z0-9@_-]{1,90}$/.test(String(g || '')) ? String(g) : ''; }
   var APPWIN = null, APPORIGIN = '', PENDING_GO = '', PENDING_MSG = '';
   try {
     var q = new URLSearchParams(location.search), g0 = validGo(q.get('go'));
@@ -330,7 +379,16 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (!okOrigin(e.origin) || !e.data || typeof e.data !== 'object') return;
     if (e.source && e.data.type !== 'tem-go') { APPWIN = e.source; APPORIGIN = e.origin; if (PENDING_GO && e.data.type === 'tem-ready') sendGo(PENDING_GO, PENDING_MSG); }
     if (e.data.type === 'tem-ready') hideSplash();
-    if (e.data.type === 'tem-save') saveFile(e.data.blob, e.data.name);
+    if (e.data.type === 'tem-save') {
+      var vsrc = e.source, vorg = e.origin;
+      try { vsrc.postMessage({ type: 'tem-save-ack' }, vorg); } catch (er) {}
+      saveMedia(e.data.blob, e.data.name, !!e.data.media, function (r) { try { vsrc.postMessage(Object.assign({ type: 'tem-save-res' }, r), vorg); } catch (er) {} });
+    }
+    /* calls */
+    if (e.data.type === 'tem-call-open') cvOpen(e.source, e.origin, e.data);
+    if (e.data.type === 'tem-call-go' && CV) cvGo(e.data);
+    if (e.data.type === 'tem-call-answer' && CV) cvAnswer(e.data.sdp);
+    if (e.data.type === 'tem-call-close' && CV) cvStop(String(e.data.text || '').slice(0, 140), !e.data.text);
     if (e.data.type === 'tem-badge') setBadge(e.data.count);
     if (e.data.type === 'tem-notify') localNotify(String(e.data.title || '').slice(0, 80), String(e.data.body || '').slice(0, 200), e.data.go);
     if (e.data.type === 'tem-push-config' && e.data.config && typeof e.data.config === 'object') {
@@ -347,7 +405,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       var lang = String(e.data.lang || 'km'), SRok = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
       /* the phone's own recognition is the fastest (Android: Khmer + English, iPhone: English); otherwise record */
       var mode = e.data.mode === 'sr' ? 'sr' : e.data.mode === 'rec' ? 'rec' : (SRok && !(ios && lang === 'km') ? 'sr' : 'rec');
-      MIC.canRec = e.data.canRec !== false;
+      MIC.canRec = e.data.canRec !== false; MIC.levels = !!e.data.levels;
       micStart(lang, mode, e.data.maxSec);
     }
     if (e.data.type === 'tem-mic-stop') micStop(false);
@@ -576,6 +634,254 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     try { Notification.requestPermission().then(function (p) { if (p === 'granted') pushToken(); else if (p === 'denied') toApp({ type: 'tem-push-state', state: 'denied' }); }); } catch (e) {}
   };
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
+  /* ===================== 1.1.33: save to Photos / Gallery ======================
+     iPhone: the share sheet ("Save Image" / "Save Video" puts it in Photos). It needs a tap on this page,
+     so when the app's tap does not count, a button is shown. Android: a download (shows in the Gallery). */
+  var SAVE = { file: null, reply: null };
+  function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+  function saveMedia(blob, name, media, reply) {
+    if (!(blob instanceof Blob)) return;
+    name = String(name || 'file').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'file';
+    var file = null;
+    try { file = new File([blob], name, { type: blob.type || 'application/octet-stream' }); } catch (e) { file = null; }
+    var share = false;
+    try { share = !!(media && isIOS() && file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (e) { share = false; }
+    if (share) {
+      navigator.share({ files: [file] }).then(function () { reply({ ok: true, how: 'share', media: true }); }).catch(function (er) {
+        if (er && er.name === 'AbortError') { reply({ ok: false, err: 'cancel' }); return; }
+        SAVE.file = file; SAVE.reply = reply;
+        $('saveT').textContent = /^video\//.test(file.type) ? 'Save the video' : 'Save the photo';
+        $('saveSheet').classList.remove('hidden');
+      });
+      return;
+    }
+    saveFile(blob, name);
+    reply({ ok: true, how: 'download', media: !!media });
+  }
+  $('saveGo').onclick = function () {
+    var f = SAVE.file, reply = SAVE.reply || function () {};
+    $('saveSheet').classList.add('hidden'); SAVE.file = null; SAVE.reply = null;
+    if (!f) return;
+    navigator.share({ files: [f] }).then(function () { reply({ ok: true, how: 'share', media: true }); })
+      .catch(function (er) { reply({ ok: false, err: er && er.name === 'AbortError' ? 'cancel' : 'fail' }); });
+  };
+  $('saveNo').onclick = function () { $('saveSheet').classList.add('hidden'); if (SAVE.reply) SAVE.reply({ ok: false, err: 'cancel' }); SAVE.file = null; SAVE.reply = null; };
+
+  /* ===================== 1.1.33: microphone level while recording (the app draws a live wave) ===================== */
+  function micMeter(stream) {
+    micMeterStop();
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      var ac = new AC(), src = ac.createMediaStreamSource(stream), an = ac.createAnalyser(), buf = new Uint8Array(512);
+      an.fftSize = 512; src.connect(an);
+      if (ac.state === 'suspended' && ac.resume) ac.resume().catch(function () {});
+      MIC.ac = ac;
+      MIC.meter = setInterval(function () {
+        an.getByteTimeDomainData(buf);
+        var s = 0; for (var i = 0; i < buf.length; i++) { var d = (buf[i] - 128) / 128; s += d * d; }
+        micReply({ type: 'tem-mic-level', v: Math.min(1, Math.round(Math.sqrt(s / buf.length) * 300) / 100) });
+      }, 90);
+    } catch (e) { /* no level: the app shows moving bars */ }
+  }
+  function micMeterStop() { clearInterval(MIC.meter); MIC.meter = null; try { if (MIC.ac) MIC.ac.close(); } catch (e) {} MIC.ac = null; }
+
+  /* ===================== 1.1.33: voice and video calls (WebRTC) =====================
+     The app (inside Google's frame) cannot use the camera or microphone, so the call runs here.
+     The app passes the call descriptions through its server; the two phones then talk directly. */
+  var CV = null;
+  var CI = {
+    mic: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-2.1A7 7 0 0 0 19 12h-2z"/></svg>',
+    micOff: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 12h-2a5 5 0 0 1-.6 2.4l1.5 1.5A7 7 0 0 0 19 12zm-4-.2V6a3 3 0 0 0-5.9-.8L15 11.8zM4.3 3 3 4.3l6 6V12a3 3 0 0 0 4.6 2.5l1.5 1.5A5 5 0 0 1 7 12H5a7 7 0 0 0 6 6.9V21h2v-2.1a7 7 0 0 0 3.2-1.2L19.7 21 21 19.7z"/></svg>',
+    cam: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.6-.4-1-1-1H4c-.6 0-1 .4-1 1v10c0 .6.4 1 1 1h12c.6 0 1-.4 1-1v-3.5l4 4v-11l-4 4z"/></svg>',
+    camOff: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6.5l-4 4V7c0-.6-.4-1-1-1H9.8L21 17.2V6.5zM3.3 2 2 3.3 4.7 6H4c-.6 0-1 .4-1 1v10c0 .6.4 1 1 1h12c.2 0 .4-.1.5-.2l3.2 3.2 1.3-1.3L3.3 2z"/></svg>',
+    flip: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 5h-3.2L15 3H9L7.2 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-5 11.5V14H9v2.5L5.5 13 9 9.5V12h6V9.5l3.5 3.5-3.5 3.5z"/></svg>',
+    end: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-1.6 0-3.2.3-4.6.7v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.6 1.8-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3L.3 13c-.2-.2-.3-.4-.3-.7 0-.3.1-.5.3-.7A16.9 16.9 0 0 1 12 7c4.5 0 8.6 1.7 11.7 4.6.2.2.3.4.3.7 0 .3-.1.5-.3.7l-2.5 2.5c-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3-.7-.7-1.6-1.3-2.6-1.8-.3-.2-.6-.5-.6-.9V9.7C15.2 9.3 13.6 9 12 9z"/></svg>',
+    phone: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>'
+  };
+  var CT0 = { calling: 'Calling…', ringing: 'Ringing…', connecting: 'Connecting…', reconnecting: 'Reconnecting…', inVoice: 'Incoming voice call', inVideo: 'Incoming video call',
+    accept: 'Accept', decline: 'Decline', end: 'End', mute: 'Mute', unmute: 'Unmute', cam: 'Camera', flip: 'Flip', ended: 'Call ended', declined: 'Declined', busy: 'Busy',
+    noanswer: 'No answer', failed: 'The call could not connect', nomedia: 'Allow the microphone (and camera) for this app', missed: 'Missed call' };
+  function ct(k) { return (CV && CV.txt && CV.txt[k]) || CT0[k] || k; }
+  function cvSend(m) { try { if (CV && CV.src) CV.src.postMessage(m, CV.org); } catch (e) {} }
+  function cvBtn(id, ico, label, cls) { return '<button type="button" class="cv-b ' + (cls || '') + '" id="' + id + '"><span>' + ico + '</span><small>' + label + '</small></button>'; }
+  function cvStatus(t) { var el = $('cvSt'); if (el) el.textContent = t; }
+  function cvDraw() {
+    if (!CV) return;
+    var v = $('callView'), live = CV.st === 'live';
+    v.classList.toggle('video', !!CV.video); v.classList.toggle('live', live); v.classList.toggle('incoming', CV.role === 'in' && !CV.accepted);
+    v.classList.toggle('has-remote', !!CV.remoteVideo);
+    var b = $('cvBtns');
+    if (CV.role === 'in' && !CV.accepted) b.innerHTML = cvBtn('cvNo', CI.end, ct('decline'), 'red') + cvBtn('cvYes', CV.video ? CI.cam : CI.phone, ct('accept'), 'green');
+    else b.innerHTML = cvBtn('cvMute', CV.muted ? CI.micOff : CI.mic, ct(CV.muted ? 'unmute' : 'mute'), CV.muted ? 'on' : '') +
+      (CV.video ? cvBtn('cvCam', CV.camOff ? CI.camOff : CI.cam, ct('cam'), CV.camOff ? 'on' : '') + cvBtn('cvFlip', CI.flip, ct('flip')) : '') + cvBtn('cvEnd', CI.end, ct('end'), 'red');
+    var on = function (id, f) { var x = $(id); if (x) x.onclick = f; };
+    on('cvNo', function () { cvSend({ type: 'tem-call-decline' }); cvStop(ct('declined')); });
+    on('cvYes', function () { cvAccept(); });
+    on('cvEnd', function () { cvSend({ type: 'tem-call-hangup' }); cvStop(ct('ended')); });
+    on('cvMute', function () { CV.muted = !CV.muted; cvTracks('audio', !CV.muted); cvDraw(); });
+    on('cvCam', function () { CV.camOff = !CV.camOff; cvTracks('video', !CV.camOff); $('cvLocal').classList.toggle('off', CV.camOff); cvDraw(); });
+    on('cvFlip', function () { cvFlip(); });
+  }
+  function cvTracks(kind, en) { if (CV && CV.local) CV.local.getTracks().forEach(function (t) { if (t.kind === kind) t.enabled = en; }); }
+  /* ringing sounds: a soft two-tone ring for the person called, a ring-back tone for the caller */
+  function cvTone(kind) {
+    cvToneStop();
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      var ac = CV.ac || (CV.ac = new AC());
+      if (ac.state === 'suspended' && ac.resume) ac.resume().catch(function () {});
+      var beep = function () {
+        if (!CV || !CV.tone) return;
+        var t = ac.currentTime, g = ac.createGain(); g.connect(ac.destination);
+        var f = kind === 'in' ? [880, 660] : [425, 425];
+        f.forEach(function (hz, i) {
+          var o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = hz; o.connect(g);
+          var s = t + (kind === 'in' ? i * 0.35 : 0), d = kind === 'in' ? 0.3 : 1;
+          o.start(s); o.stop(s + d);
+        });
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(kind === 'in' ? 0.25 : 0.12, t + 0.03); g.gain.setValueAtTime(kind === 'in' ? 0.25 : 0.12, t + (kind === 'in' ? 0.62 : 0.95)); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'in' ? 0.7 : 1.05));
+      };
+      CV.tone = setInterval(beep, kind === 'in' ? 2000 : 3000); beep();
+      if (kind === 'in' && navigator.vibrate) { try { navigator.vibrate([400, 250, 400]); } catch (e) {} CV.vib = setInterval(function () { try { navigator.vibrate([400, 250, 400]); } catch (e) {} }, 2000); }
+    } catch (e) { /* silent ring */ }
+  }
+  function cvToneStop() { if (!CV) return; clearInterval(CV.tone); CV.tone = null; clearInterval(CV.vib); CV.vib = null; try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {} }
+  function cvOpen(src, org, d) {
+    var w0 = CV ? CV.wake0 : WAKE.want;
+    if (CV) cvStop('', true);
+    WAKE.want = w0;
+    CV = { src: src, org: org, role: d.role === 'in' ? 'in' : 'out', video: !!d.video, txt: d.txt && typeof d.txt === 'object' ? d.txt : {}, st: 'ring', accepted: d.role !== 'in', t0: 0 };
+    cvSend({ type: 'tem-call-ack' });
+    var av = $('cvAv'), photo = /^data:image\/(jpeg|png|webp);base64,/.test(String(d.photo || '')) ? d.photo : '';
+    av.style.background = /^#[0-9a-f]{3,8}$/i.test(String(d.color || '')) ? d.color : '#2563eb';
+    av.innerHTML = photo ? '<img alt="" src="' + photo + '">' : '';
+    if (!photo) av.textContent = String(d.ini || '?').slice(0, 3);
+    $('cvName').textContent = String(d.name || '').slice(0, 60);
+    cvStatus(CV.role === 'in' ? ct(CV.video ? 'inVideo' : 'inVoice') : ct('calling'));
+    $('cvTime').textContent = '';
+    $('cvLocal').classList.remove('off');
+    $('callView').classList.remove('hidden', 'closing');
+    cvDraw();
+    CV.wake0 = WAKE.want; WAKE.want = true; wakeApply();
+    cvTone(CV.role);
+    /* the caller's camera / microphone start at once (asked while the other phone rings) */
+    if (CV.role === 'out') cvMedia().catch(function () {});
+  }
+  function cvMedia() {
+    if (CV.mediaP) return CV.mediaP;
+    var c = CV;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { c.mediaP = Promise.reject(new Error('media')); return c.mediaP; }
+    c.facing = 'user';
+    c.mediaP = navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: c.video ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } } : false
+    }).then(function (st) {
+      if (CV !== c) { st.getTracks().forEach(function (t) { t.stop(); }); throw new Error('gone'); }
+      c.local = st;
+      if (c.video) { var lv = $('cvLocal'); lv.srcObject = st; lv.play().catch(function () {}); }
+      return st;
+    });
+    c.mediaP.catch(function (e) { if (CV === c && e && e.message !== 'gone') { cvSend({ type: 'tem-call-fail', err: 'media' }); cvStop(ct('nomedia')); } });
+    return c.mediaP;
+  }
+  function cvPc(ice) {
+    var c = CV, servers = (Array.isArray(ice) ? ice : []).filter(function (s) { return s && s.urls; }).slice(0, 6);
+    var pc = new RTCPeerConnection({ iceServers: servers, bundlePolicy: 'max-bundle' });
+    c.pc = pc;
+    c.local.getTracks().forEach(function (t) { pc.addTrack(t, c.local); });
+    pc.ontrack = function (e) {
+      if (CV !== c) return;
+      var st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
+      if (e.track.kind === 'video') { c.remoteVideo = true; var rv = $('cvRemote'); rv.srcObject = st; rv.play().catch(function () {}); cvDraw(); }
+      var au = $('cvAudio'); if (au.srcObject !== st) { au.srcObject = st; au.play().catch(function () {}); }
+    };
+    pc.onconnectionstatechange = function () {
+      if (CV !== c) return;
+      var s = pc.connectionState;
+      if (s === 'connected') cvLive();
+      else if (s === 'disconnected') cvStatus(ct('reconnecting'));
+      else if (s === 'failed') { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); }
+    };
+    pc.oniceconnectionstatechange = function () { if (CV === c && (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed')) cvLive(); };
+    return pc;
+  }
+  /* no trickle: wait until the phone has found its addresses (at most 3 s), then send one description */
+  function cvGather(pc) {
+    return new Promise(function (ok) {
+      if (pc.iceGatheringState === 'complete') return ok();
+      var t = setTimeout(ok, 3000);
+      pc.addEventListener('icegatheringstatechange', function () { if (pc.iceGatheringState === 'complete') { clearTimeout(t); ok(); } });
+    });
+  }
+  function cvGo(d) {
+    var c = CV; if (!c) return;
+    c.cid = String(d.cid || '');
+    if (c.role === 'out') {
+      cvStatus(ct('ringing'));
+      cvMedia().then(function () {
+        var pc = cvPc(d.ice);
+        return pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }).then(function () { return cvGather(pc); })
+          .then(function () { if (CV === c) cvSend({ type: 'tem-call-sig', kind: 'offer', sdp: pc.localDescription.sdp }); });
+      }).catch(function (e) { if (CV === c && e && e.message !== 'media' && e.message !== 'gone') { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); } });
+    } else {
+      cvStatus(ct('connecting'));
+      cvMedia().then(function () {
+        var pc = cvPc(d.ice);
+        return pc.setRemoteDescription({ type: 'offer', sdp: String(d.offer || '') }).then(function () { return pc.createAnswer(); })
+          .then(function (a) { return pc.setLocalDescription(a); }).then(function () { return cvGather(pc); })
+          .then(function () { if (CV === c) cvSend({ type: 'tem-call-sig', kind: 'answer', sdp: pc.localDescription.sdp }); });
+      }).catch(function (e) { if (CV === c && e && e.message !== 'media' && e.message !== 'gone') { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); } });
+    }
+  }
+  function cvAccept() {
+    if (!CV || CV.accepted) return;
+    CV.accepted = true; cvToneStop();
+    /* this tap also lets the phone play the other person's voice */
+    try { if (CV.ac && CV.ac.resume) CV.ac.resume(); $('cvAudio').play().catch(function () {}); } catch (e) {}
+    cvStatus(ct('connecting')); cvDraw();
+    cvMedia().catch(function () {});
+    cvSend({ type: 'tem-call-accept' });
+  }
+  function cvAnswer(sdp) {
+    var c = CV; if (!c || !c.pc) return;
+    cvToneStop(); cvStatus(ct('connecting'));
+    c.pc.setRemoteDescription({ type: 'answer', sdp: String(sdp || '') }).catch(function () { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); });
+  }
+  function cvLive() {
+    var c = CV; if (!c || c.st === 'live') { if (c) cvStatus(''); return; }
+    c.st = 'live'; c.t0 = Date.now(); cvToneStop(); cvStatus(''); cvDraw();
+    cvSend({ type: 'tem-call-state', st: 'live' });
+    c.timer = setInterval(function () { if (CV !== c) return; var s = Math.floor((Date.now() - c.t0) / 1000); $('cvTime').textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }, 1000);
+  }
+  function cvFlip() {
+    var c = CV; if (!c || !c.local || !c.video) return;
+    var want = c.facing === 'user' ? 'environment' : 'user';
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: want, width: { ideal: 640 }, height: { ideal: 480 } } }).then(function (st) {
+      if (CV !== c) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
+      var nt = st.getVideoTracks()[0], old = c.local.getVideoTracks()[0];
+      var snd = c.pc && c.pc.getSenders().filter(function (s) { return s.track && s.track.kind === 'video'; })[0];
+      (snd ? snd.replaceTrack(nt) : Promise.resolve()).then(function () {
+        if (old) { c.local.removeTrack(old); old.stop(); }
+        c.local.addTrack(nt); c.facing = want; nt.enabled = !c.camOff;
+        var lv = $('cvLocal'); lv.srcObject = c.local; lv.classList.toggle('back', want !== 'user'); lv.play().catch(function () {});
+      });
+    }).catch(function () {});
+  }
+  function cvStop(text, quick) {
+    var c = CV; if (!c) return;
+    CV = null;
+    clearInterval(c.timer); clearInterval(c.tone); clearInterval(c.vib);
+    try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
+    try { if (c.pc) c.pc.close(); } catch (e) {}
+    try { if (c.local) c.local.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    try { if (c.ac) c.ac.close(); } catch (e) {}
+    ['cvRemote', 'cvLocal', 'cvAudio'].forEach(function (id) { try { $(id).srcObject = null; } catch (e) {} });
+    WAKE.want = !!c.wake0; wakeApply();
+    var v = $('callView');
+    if (quick || !text) { v.classList.add('hidden'); return; }
+    cvStatus(text); $('cvBtns').innerHTML = ''; v.classList.add('closing');
+    setTimeout(function () { if (!CV) v.classList.add('hidden'); }, 1600);
+  }
   /* service worker (needed for "Install app" on Android) */
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(function () {});
