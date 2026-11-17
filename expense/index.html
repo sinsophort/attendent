@@ -433,7 +433,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   /* ===================== the Android / iPhone app around this launcher (1.1.36) =====================
      Inside our own app the launcher talks to it: its push token, calls (speaker, screen off at the ear),
      saving straight to the Gallery / Photos, and "open this" when a notification is tapped. */
-  var NAT = { on: false, platform: '', token: '', send: null, wait: {}, n: 0 };
+  var NAT = { on: false, platform: '', token: '', send: null, wait: {}, n: 0, bio: false };
   (function () {
     try {
       if (window.TripNative && typeof window.TripNative.postMessage === 'function') {
@@ -452,8 +452,10 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (d.t === 'hello' || d.t === 'token') {
       NAT.platform = d.platform === 'ios' ? 'ios' : 'android';
       if (typeof d.token === 'string') NAT.token = d.token.slice(0, 4000);
+      if (d.bio === true) NAT.bio = true;
       natToApp();
     } else if (d.t === 'go') goOnce(String(d.go || ''), String(d.msg || ''), 'n' + Date.now());
+    else if (d.t === 'bio') natBioRes(d);
     else if (d.t === 'saved') { var f = NAT.wait[d.id]; delete NAT.wait[d.id]; if (f) f(!!d.ok); }
   }
   /* save a photo / video / file through the app: straight into the Gallery (Android) or Photos (iPhone) */
@@ -651,7 +653,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   function bioSig() { return BIO.ac ? { signal: BIO.ac.signal } : {}; }
   function bioReply(o, n) { if (n && n !== BIO.n) return; try { if (BIO.src) BIO.src.postMessage(Object.assign({ type: 'tem-bio-res' }, o), BIO.org); } catch (er) {} }
   function bioHide() { $('bioSheet').classList.add('hidden'); }
-  function bioStop() { try { if (BIO.ac) BIO.ac.abort(); } catch (er) {} BIO.n++; BIO.src = null; BIO.kind = ''; bioHide(); }
+  function bioStop() { if (NAT.bio && BIO.kind) natSend({ t: 'bioStop' }); try { if (BIO.ac) BIO.ac.abort(); } catch (er) {} BIO.n++; BIO.src = null; BIO.kind = ''; bioHide(); }
   function bioShow(kind) {
     var what = IOS ? 'Face ID' : 'fingerprint / face unlock';
     $('bioIco').innerHTML = IOS ? ICO_FACE : ICO_FINGER;
@@ -676,12 +678,14 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   }
   function bioNew(src, org, d) {
     var n = bioStart(src, org, 'new', d);
+    if (NAT.bio) return natBio('new', n);
     if (!bioOk()) return bioReply({ op: 'new', ok: false, err: 'unsupported' }, n);
     PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function (y) { if (!y) bioReply({ op: 'new', ok: false, err: 'unsupported' }, n); else if (n === BIO.n) bioShow('new'); })
       .catch(function () { bioReply({ op: 'new', ok: false, err: 'unsupported' }, n); });
   }
   function bioGet(src, org, d) {
     var n = bioStart(src, org, 'get', d);
+    if (NAT.bio) return natBio('get', n);
     if (!bioOk() || !/^[A-Za-z0-9_-]{16,700}$/.test(String(d.id || ''))) return bioReply({ op: 'get', ok: false, err: 'unsupported' }, n);
     /* try at once (Android, newer iPhones allow it); if the phone wants a tap first, show the big button.
        iPhone asks for a tap on the launcher itself: the tap in the app's frame does not count there */
@@ -692,6 +696,17 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       if (Date.now() - t0 < 2500 && name !== 'AbortError') bioShow('get');
       else { bioHide(); bioReply({ op: 'get', ok: false, err: name || 'fail' }, n); }
     });
+  }
+  /* 1.1.36.1: inside our Android / iPhone app the web view has no WebAuthn: the app shows the phone's own
+     fingerprint / face screen (BiometricPrompt, Face ID) and answers here */
+  function natBio(op, n) { natSend({ t: 'bio', op: op, n: n }); }
+  function natBioRes(d) {
+    var n = Number(d.n);
+    if (n !== BIO.n || !BIO.kind) return;
+    var op = BIO.kind, id = /^[A-Za-z0-9_-]{16,700}$/.test(String(d.id || '')) ? String(d.id) : '';
+    if (d.ok && (op === 'get' || id)) bioReply(op === 'new' ? { op: 'new', ok: true, id: id } : { op: 'get', ok: true }, n);
+    else bioReply({ op: op, ok: false, err: d.err === 'cancel' ? 'cancel' : d.err === 'NotAllowedError' ? 'NotAllowedError' : 'unsupported' }, n);
+    BIO.kind = '';
   }
   $('bioGo').onclick = function () {
     var n = BIO.n;
