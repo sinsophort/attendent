@@ -433,7 +433,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   /* ===================== the Android / iPhone app around this launcher (1.1.36) =====================
      Inside our own app the launcher talks to it: its push token, calls (speaker, screen off at the ear),
      saving straight to the Gallery / Photos, and "open this" when a notification is tapped. */
-  var NAT = { on: false, platform: '', token: '', send: null, wait: {}, n: 0, bio: false };
+  var NAT = { on: false, platform: '', token: '', send: null, wait: {}, n: 0, bio: false, loc: false, geo: null };
   (function () {
     try {
       if (window.TripNative && typeof window.TripNative.postMessage === 'function') {
@@ -453,9 +453,12 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       NAT.platform = d.platform === 'ios' ? 'ios' : 'android';
       if (typeof d.token === 'string') NAT.token = d.token.slice(0, 4000);
       if (d.bio === true) NAT.bio = true;
+      if (d.loc === true) NAT.loc = true;
       natToApp();
     } else if (d.t === 'go') goOnce(String(d.go || ''), String(d.msg || ''), 'n' + Date.now());
     else if (d.t === 'bio') natBioRes(d);
+    else if (d.t === 'loc' && NAT.geo) NAT.geo({ type: 'tem-geo-pos', id: 'w', lat: Number(d.lat), lng: Number(d.lng), acc: Number(d.acc) || 50, heading: d.heading == null ? null : Number(d.heading), speed: d.speed == null ? null : Number(d.speed), t: Date.now() });
+    else if (d.t === 'locErr' && NAT.geo) NAT.geo({ type: 'tem-geo-err', id: 'w', error: d.error === 'denied' ? 'denied' : 'error' });
     else if (d.t === 'saved') { var f = NAT.wait[d.id]; delete NAT.wait[d.id]; if (f) f(!!d.ok); }
   }
   /* save a photo / video / file through the app: straight into the Gallery (Android) or Photos (iPhone) */
@@ -499,6 +502,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       saveMedia(e.data.blob, e.data.name, !!e.data.media, function (r) { try { vsrc.postMessage(Object.assign({ type: 'tem-save-res' }, r), vorg); } catch (er) {} });
     }
     /* calls */
+    if (e.data.type === 'tem-call-answer-now' && CV && CV.role === 'in' && !CV.accepted) cvAccept();
     if (e.data.type === 'tem-call-open') { cvOpen(e.source, e.origin, e.data); if (e.data.auto && e.data.role === 'in') setTimeout(cvAccept, 60); }
     if (e.data.type === 'tem-call-go' && CV) cvGo(e.data);
     if (e.data.type === 'tem-call-answer' && CV) cvAnswer(e.data.sdp, e.data.peer);
@@ -553,6 +557,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
         return;
       }
       if (GEO.watch !== null) { try { navigator.geolocation.clearWatch(GEO.watch); } catch (er) {} GEO.watch = null; }
+      /* 1.1.37: inside our Android app the app itself follows the position, also with the screen locked */
+      if (NAT.loc) { NAT.geo = e.data.on ? send : null; natSend({ t: 'loc', on: !!e.data.on }); return; }
       if (e.data.on) GEO.watch = navigator.geolocation.watchPosition(ok, bad, opts);
     }
     if (e.data.type === 'tem-mic-cancel') micStop(true);
@@ -1103,15 +1109,18 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     var c = CV; if (!c) return;
     c.cid = String(d.cid || '');
     if (c.group) { cvStatus(ct('connecting')); cvMedia().then(function () { if (CV === c && !c.t0) cvLive(); }).catch(function () {}); return; }
-    if (c.role === 'out') { cvStatus(ct('ringing')); cvOffer('p', '', d.ice); }
+    if (c.role === 'out') { cvStatus(ct('ringing')); cvOffer('p', '', d.ice); natEarly(c); }
     else { cvStatus(ct('connecting')); cvAnswerTo('p', '', d.ice, d.offer); }
   }
+  /* 1.1.37: the earpiece and "screen off at the ear" already while it rings / connects (the phone is at the ear by then) */
+  function natEarly(c) { if (!c || c.natOn || !NAT.on || c.group) return; c.natOn = true; c.spk = !!c.video; natSend({ t: 'call', st: 'live', video: !!c.video }); }
   function cvAccept() {
     if (!CV || CV.accepted) return;
     natSend({ t: 'ringStop' });
     CV.accepted = true; cvToneStop();
     /* this tap also lets the phone play the other person's voice */
     try { if (CV.ac && CV.ac.resume) CV.ac.resume(); $('cvAudio').play().catch(function () {}); } catch (e) {}
+    natEarly(CV);
     cvStatus(ct('connecting')); cvDraw();
     cvMedia().catch(function () {});
     cvSend({ type: 'tem-call-accept' });
@@ -1125,7 +1134,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     var c = CV; if (!c) return;
     if (c.st === 'live') { if (!c.group) cvStatus(c.timer ? '' : ct('connecting')); return; }
     c.st = 'live'; cvToneStop();
-    c.spk = !!c.video; natSend({ t: 'call', st: 'live', video: !!c.video });
+    if (!c.natOn) { c.spk = !!c.video; natSend({ t: 'call', st: 'live', video: !!c.video }); }
     cvDraw();
     cvSend({ type: 'tem-call-state', st: 'live' });
     /* one-to-one: the time starts when the direct line opens on both phones (see cvNewPeer) */
