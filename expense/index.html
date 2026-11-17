@@ -53,6 +53,23 @@
   #callView.has-remote #cvRemote { display: block; }
   .cv-shade { position: absolute; inset: 0; background: linear-gradient(rgba(0, 0, 0, .5), transparent 28%, transparent 68%, rgba(0, 0, 0, .6)); display: none; pointer-events: none; }
   #callView.has-remote .cv-shade { display: block; }
+  /* 1.1.38: live QR scanner (add friends) */
+  #qrView { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #qrView.hidden { display: none; }
+  #qrVid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .qr-frame { position: relative; width: min(68vw, 300px); aspect-ratio: 1; border-radius: 22px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .55); }
+  .qr-frame i { position: absolute; width: 38px; height: 38px; border: 4px solid #fff; }
+  .qr-frame i:nth-child(1) { left: -2px; top: -2px; border-right: 0; border-bottom: 0; border-radius: 20px 0 0 0; }
+  .qr-frame i:nth-child(2) { right: -2px; top: -2px; border-left: 0; border-bottom: 0; border-radius: 0 20px 0 0; }
+  .qr-frame i:nth-child(3) { left: -2px; bottom: -2px; border-right: 0; border-top: 0; border-radius: 0 0 0 20px; }
+  .qr-frame i:nth-child(4) { right: -2px; bottom: -2px; border-left: 0; border-top: 0; border-radius: 0 0 20px 0; }
+  .qr-line { position: absolute; left: 8%; right: 8%; height: 2px; background: linear-gradient(90deg, transparent, #22d3ee, transparent); top: 10%; animation: qrMove 2s ease-in-out infinite alternate; box-shadow: 0 0 12px #22d3ee; }
+  @keyframes qrMove { to { top: 88%; } }
+  #qrView.found .qr-frame i { border-color: #22c55e; } #qrView.found .qr-line { display: none; }
+  .qr-top { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; display: flex; align-items: center; justify-content: space-between; z-index: 2; font-weight: 700; }
+  .qr-top #qrT { flex: 1; text-align: center; } .qr-top .vp-b.off { visibility: hidden; }
+  #qrHint { position: relative; margin: 26px 16px 0; text-align: center; font-size: 15px; text-shadow: 0 1px 6px rgba(0, 0, 0, .7); }
+  #qrPick { position: absolute; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); border: 0; border-radius: 24px; padding: 12px 20px; background: rgba(255, 255, 255, .2); color: #fff; font: inherit; font-weight: 600; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
   .cv-top { position: relative; text-align: center; margin-top: 6vh; }
   #callView.has-remote .cv-top { margin-top: 0; } #callView.has-remote .cv-av { display: none; }
   .cv-av { width: 112px; height: 112px; border-radius: 50%; margin: 0 auto 16px; display: grid; place-items: center; font-size: 40px; font-weight: 800; overflow: hidden;
@@ -85,8 +102,14 @@
   /* 1.1.34: livelier call screen, group grid, ear mode */
   #callView.opening { animation: cvIn .32s cubic-bezier(.2, .9, .25, 1); }
   @keyframes cvIn { from { opacity: 0; transform: translateY(24px) scale(.98); } to { opacity: 1; transform: none; } }
-  #callView.closing { animation: cvOut 1.4s ease-in forwards; }
-  @keyframes cvOut { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+  #callView.closing { animation: cvOut 2.2s ease-in forwards; }
+  /* 1.1.38: the end of a call: photo (grey), "Call ended", the time */
+  #callView.ended #cvRemote, #callView.ended #cvLocal, #callView.ended .cv-grid { display: none !important; }
+  #callView.ended .cv-av { display: grid !important; filter: grayscale(.85); opacity: .85; animation: cvEndPop .35s ease-out; }
+  #callView.ended #cvSt { font-size: 18px; font-weight: 700; letter-spacing: .2px; }
+  #callView.ended .cv-top { margin-top: 14vh; }
+  @keyframes cvEndPop { from { transform: scale(1.08); } to { transform: none; } }
+  @keyframes cvOut { 0%, 78% { opacity: 1; } 100% { opacity: 0; } }
   .cv-b span { position: relative; transition: transform .16s cubic-bezier(.3, 1.6, .5, 1), background .2s, color .2s, box-shadow .2s; }
   .cv-b:hover span { box-shadow: 0 0 0 6px rgba(255, 255, 255, .08); }
   .cv-b:active span { transform: scale(.86); transition-duration: .06s; }
@@ -185,6 +208,14 @@
   <button class="btn" type="button" id="saveGo">Save</button><br>
   <button class="btn ghost" type="button" id="saveNo">Cancel</button>
 </div></div>
+<div id="qrView" class="hidden" role="dialog" aria-modal="true" aria-label="Scan QR">
+  <video id="qrVid" playsinline autoplay muted></video>
+  <div class="qr-frame"><i></i><i></i><i></i><i></i><b class="qr-line"></b></div>
+  <div class="qr-top"><button type="button" class="vp-b" id="qrX" aria-label="Close">✕</button><span id="qrT">Scan QR</span><button type="button" class="vp-b off" id="qrTorch" aria-label="Light">🔦</button></div>
+  <p id="qrHint">Point the camera at the QR code</p>
+  <button type="button" id="qrPick">🖼️ Pick a photo</button>
+  <canvas id="qrCv" class="hidden"></canvas>
+</div>
 <div id="callView" class="hidden" role="dialog" aria-modal="true" aria-label="Call">
   <video id="cvRemote" playsinline autoplay muted></video><audio id="cvAudio" autoplay playsinline></audio><div id="cvAudios"></div><div class="cv-shade"></div>
   <div class="cv-top"><div class="cv-av" id="cvAv"></div><h2 id="cvName"></h2><p id="cvSt"></p><p id="cvTime" class="cv-time"></p><p class="cv-peer" id="cvPeer"></p></div>
@@ -223,7 +254,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     setup.classList.add('hidden'); splash.classList.remove('hidden'); $('slow').classList.add('hidden');
     $('patience').classList.add('hidden'); $('opening').classList.remove('hidden');
     $('direct').href = u;
-    frame.src = u + (u.indexOf('?') < 0 ? '?' : '&') + 'app=pwa';
+    var su = /[?&]signup=1\b/.test(location.search) ? '&signup=1' : '';
+    frame.src = u + (u.indexOf('?') < 0 ? '?' : '&') + 'app=pwa' + su;
     clearTimeout(slowTimer);
     /* keep waiting quietly: a slow first start is normal for Google Apps Script */
     slowTimer = setTimeout(function () {
@@ -381,10 +413,11 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   }
   /* "open this place" from a tapped notification: ?go=… on start, or a message from the service worker */
   function validGo(g) { return /^(chat|exp|req|page|call):[A-Za-z0-9@_-]{1,90}$/.test(String(g || '')) ? String(g) : ''; }
-  var APPWIN = null, APPORIGIN = '', PENDING_GO = '', PENDING_MSG = '';
+  var APPWIN = null, APPORIGIN = '', PENDING_GO = '', PENDING_MSG = '', PRE0 = null;
   try {
     var q = new URLSearchParams(location.search), g0 = validGo(q.get('go'));
-    if (g0) { PENDING_GO = g0; PENDING_MSG = String(q.get('gm') || '').slice(0, 2500); q.delete('go'); q.delete('gm'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); }
+    if (g0) { PENDING_GO = g0; PENDING_MSG = String(q.get('gm') || '').slice(0, 2500); PRE0 = { go: g0, name: String(q.get('cn') || '').slice(0, 60), video: q.get('cv') === '1' };
+      q.delete('go'); q.delete('gm'); q.delete('cn'); q.delete('cv'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); }
   } catch (e) {}
   function sendGo(go, msg) {
     go = validGo(go); if (!go) return;
@@ -433,7 +466,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   /* ===================== the Android / iPhone app around this launcher (1.1.36) =====================
      Inside our own app the launcher talks to it: its push token, calls (speaker, screen off at the ear),
      saving straight to the Gallery / Photos, and "open this" when a notification is tapped. */
-  var NAT = { on: false, platform: '', token: '', send: null, wait: {}, n: 0, bio: false, loc: false, geo: null };
+  var NAT = { on: false, platform: '', token: '', send: null, wait: {}, n: 0, bio: false, loc: false, geo: null, version: '', install: false };
   (function () {
     try {
       if (window.TripNative && typeof window.TripNative.postMessage === 'function') {
@@ -447,25 +480,30 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (NAT.send) { NAT.on = true; document.documentElement.classList.add('native'); NAT.send({ t: 'hello' }); }
   })();
   function natSend(o) { if (NAT.on) try { NAT.send(o); } catch (e) {} }
-  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token }, APPORIGIN); } catch (e) {} }
+  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token, version: NAT.version, install: NAT.install }, APPORIGIN); } catch (e) {} }
   function natEvent(d) {
     if (d.t === 'hello' || d.t === 'token') {
       NAT.platform = d.platform === 'ios' ? 'ios' : 'android';
       if (typeof d.token === 'string') NAT.token = d.token.slice(0, 4000);
       if (d.bio === true) NAT.bio = true;
       if (d.loc === true) NAT.loc = true;
+      if (d.install === true) NAT.install = true;
+      if (typeof d.version === 'string') NAT.version = d.version.slice(0, 30);
       natToApp();
-    } else if (d.t === 'go') goOnce(String(d.go || ''), String(d.msg || ''), 'n' + Date.now());
+    } else if (d.t === 'go') {
+      if (d.msg === 'answer' && /^call:/.test(String(d.go || ''))) cvPre(String(d.go), String(d.name || ''), !!d.video);
+      goOnce(String(d.go || ''), String(d.msg || ''), 'n' + Date.now());
+    }
     else if (d.t === 'bio') natBioRes(d);
     else if (d.t === 'loc' && NAT.geo) NAT.geo({ type: 'tem-geo-pos', id: 'w', lat: Number(d.lat), lng: Number(d.lng), acc: Number(d.acc) || 50, heading: d.heading == null ? null : Number(d.heading), speed: d.speed == null ? null : Number(d.speed), t: Date.now() });
     else if (d.t === 'locErr' && NAT.geo) NAT.geo({ type: 'tem-geo-err', id: 'w', error: d.error === 'denied' ? 'denied' : 'error' });
-    else if (d.t === 'saved') { var f = NAT.wait[d.id]; delete NAT.wait[d.id]; if (f) f(!!d.ok); }
+    else if (d.t === 'saved') { var f = NAT.wait[d.id]; delete NAT.wait[d.id]; if (f) f(!!d.ok, d.why ? String(d.why).slice(0, 40) : ''); }
   }
   /* save a photo / video / file through the app: straight into the Gallery (Android) or Photos (iPhone) */
-  function natSave(blob, name, media, reply) {
+  function natSave(blob, name, media, reply, install) {
     var id = 's' + (++NAT.n), CH = 393216, off = 0;
-    NAT.wait[id] = function (ok) { reply(ok ? { ok: true, how: 'native', media: !!media } : { ok: false, err: 'fail' }); };
-    natSend({ t: 'saveBegin', id: id, name: name, mime: blob.type || 'application/octet-stream', media: !!media, size: blob.size });
+    NAT.wait[id] = function (ok, why) { reply(ok ? { ok: true, how: 'native', media: !!media } : { ok: false, err: why || 'fail' }); };
+    natSend({ t: 'saveBegin', id: id, name: name, mime: blob.type || 'application/octet-stream', media: !!media, size: blob.size, install: !!install });
     var next = function () {
       if (off >= blob.size) { natSend({ t: 'saveEnd', id: id }); return; }
       var part = blob.slice(off, off + CH), r = new FileReader();
@@ -503,7 +541,11 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     }
     /* calls */
     if (e.data.type === 'tem-call-answer-now' && CV && CV.role === 'in' && !CV.accepted) cvAccept();
-    if (e.data.type === 'tem-call-open') { cvOpen(e.source, e.origin, e.data); if (e.data.auto && e.data.role === 'in') setTimeout(cvAccept, 60); }
+    if (e.data.type === 'tem-call-open') {
+      var pre = PRE; PRE = null; $('callView').classList.remove('pre');
+      if (pre && pre.declined && e.data.role === 'in' && Date.now() - pre.t < 60000) { cvOpen(e.source, e.origin, e.data); cvSend({ type: 'tem-call-decline' }); cvStop('', true); }
+      else { cvOpen(e.source, e.origin, e.data); if (e.data.auto && e.data.role === 'in') setTimeout(cvAccept, 60); }
+    }
     if (e.data.type === 'tem-call-go' && CV) cvGo(e.data);
     if (e.data.type === 'tem-call-answer' && CV) cvAnswer(e.data.sdp, e.data.peer);
     /* group calls: one connection per person */
@@ -513,6 +555,13 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (e.data.type === 'tem-call-close' && CV) cvStop(String(e.data.text || '').slice(0, 140), !e.data.text);
     /* a chat video: full screen here, playing while it downloads */
     if (e.data.type === 'tem-video') vpOpen(e.source, e.origin, e.data);
+    if (e.data.type === 'tem-qr-scan') qrOpen(e.source, e.origin, e.data);
+    /* 1.1.38: a new version of our Android app, downloaded by the app page: the phone's installer opens */
+    if (e.data.type === 'tem-install' && e.data.blob instanceof Blob) {
+      var isrc = e.source, iorg = e.origin;
+      if (!NAT.install) { try { isrc.postMessage({ type: 'tem-install-res', ok: false, err: 'old' }, iorg); } catch (er) {} }
+      else natSave(e.data.blob, 'update.apk', false, function (r) { try { isrc.postMessage(Object.assign({ type: 'tem-install-res' }, r), iorg); } catch (er) {} }, true);
+    }
     if (e.data.type === 'tem-vr-res') vpRes(e.data);
     if (e.data.type === 'tem-vblob-prog' && VP && e.data.id === VP.id) vpProg(Number(e.data.p) || 0);
     if (e.data.type === 'tem-vblob-res' && VP && e.data.id === VP.id) vpBlobRes(e.data);
@@ -947,7 +996,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     $('cvLocal').classList.remove('off');
     $('cvDark').classList.add('hidden');
     var v = $('callView');
-    v.classList.remove('hidden', 'closing', 'opening'); void v.offsetWidth; v.classList.add('opening');
+    v.classList.remove('hidden', 'closing', 'opening', 'ended'); CV_END++; void v.offsetWidth; v.classList.add('opening');
     cvDraw();
     CV.wake0 = WAKE.want; WAKE.want = true; wakeApply();
     cvTone(CV.role);
@@ -994,6 +1043,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       };
     } catch (e) { p.dc = null; }
     p.pc.ontrack = function (e) {
+      /* 1.1.38: play the other voice as soon as it arrives (the smallest safe buffer; the browser grows it on a bad line) */
+      try { if (e.receiver) { if ('jitterBufferTarget' in e.receiver) e.receiver.jitterBufferTarget = 0; if ('playoutDelayHint' in e.receiver) e.receiver.playoutDelayHint = 0; } } catch (er) {}
       if (CV !== c || c.peers[id] !== p) return;
       var st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
       if (e.track.kind === 'video') {
@@ -1163,6 +1214,25 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       });
     }).catch(function () {});
   }
+  var CV_END = 0, PRE = null;
+  /* 1.1.38: "Answer" on the phone's ringing screen: the call screen shows at once ("Connecting…") while the app
+     opens; the real call takes this screen over a moment later and is accepted by itself */
+  function cvPre(go, name, video) {
+    if (CV) return;
+    var v = $('callView'), my = ++CV_END;
+    PRE = { go: go, t: Date.now(), n: my };
+    v.classList.remove('hidden', 'closing', 'opening', 'ended', 'incoming', 'live', 'group', 'has-remote');
+    v.classList.toggle('video', false); void v.offsetWidth; v.classList.add('opening', 'pre');
+    var av = $('cvAv'); av.style.background = '#2563eb'; av.innerHTML = '';
+    av.textContent = (String(name || '?').replace(/[^\p{L}\p{N} ]/gu, '').trim().split(/\s+/).map(function (w) { return w.charAt(0); }).join('').slice(0, 2) || '📞').toUpperCase();
+    $('cvName').textContent = String(name || '').slice(0, 60);
+    cvStatus(CT0.connecting); $('cvTime').textContent = ''; $('cvPeer').textContent = ''; $('cvGrid').innerHTML = '';
+    $('cvBtns').innerHTML = cvBtn('cvPreEnd', CI.end, CT0.end || 'End', 'red');
+    $('cvPreEnd').onclick = function () { if (PRE) PRE.declined = true; cvPreHide(); };
+    setTimeout(function () { if (PRE && PRE.n === my && !CV) cvPreHide(); }, 35000);
+  }
+  setTimeout(function () { if (PRE0 && PENDING_MSG === 'answer' && /^call:/.test(PRE0.go)) cvPre(PRE0.go, PRE0.name, PRE0.video); }, 0);
+  function cvPreHide() { if (CV) return; var v = $('callView'); v.classList.add('hidden'); v.classList.remove('pre', 'opening'); }
   function cvStop(text, quick) {
     var c = CV; if (!c) return;
     CV = null;
@@ -1179,14 +1249,83 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     var v = $('callView');
     v.classList.remove('opening');
     if (quick || !text) { v.classList.add('hidden'); return; }
-    cvStatus(text); $('cvBtns').innerHTML = ''; v.classList.add('closing');
-    setTimeout(function () { if (!CV) v.classList.add('hidden'); }, 1400);
+    /* 1.1.38: voice and video end the same way: the photo, "Call ended" and how long it lasted */
+    var dur = c.t0 ? Math.max(0, Math.floor((Date.now() - c.t0) / 1000)) : 0;
+    v.classList.remove('video', 'has-remote', 'incoming', 'live', 'group');
+    v.classList.add('ended');
+    cvStatus(text); $('cvTime').textContent = dur ? Math.floor(dur / 60) + ':' + ('0' + dur % 60).slice(-2) : '';
+    $('cvPeer').textContent = ''; $('cvBtns').innerHTML = ''; v.classList.add('closing');
+    var my = ++CV_END;
+    setTimeout(function () { if (!CV && my === CV_END) { v.classList.add('hidden'); v.classList.remove('ended', 'closing'); } }, 2200);
   }
   /* ear mode: a black screen while you hold the phone to your ear (no cheek taps); tap twice to light it */
   (function () {
     var last = 0;
     $('cvDark').addEventListener('click', function () { var n = Date.now(); if (n - last < 400) $('cvDark').classList.add('hidden'); last = n; });
   })();
+  /* ===================== live QR scanner (1.1.38) =====================
+     The app's frame cannot use the camera on every phone, so the launcher scans: the camera opens at once and the
+     code is read by itself (the phone's own reader where there is one, otherwise jsQR). */
+  var QR = null, QR_LIB = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+  function qrLibLoad() {
+    if (window.jsQR) return Promise.resolve();
+    if (qrLibLoad.p) return qrLibLoad.p;
+    qrLibLoad.p = new Promise(function (ok, bad) { var sc = document.createElement('script'); sc.src = QR_LIB; sc.onload = function () { window.jsQR ? ok() : bad(); }; sc.onerror = function () { qrLibLoad.p = null; bad(); }; document.head.appendChild(sc); });
+    return qrLibLoad.p;
+  }
+  function qrOpen(src, org, d) {
+    if (QR) qrClose('');
+    var tx0 = d && d.txt && typeof d.txt === 'object' ? d.txt : {};
+    QR = { src: src, org: org, stream: null, det: null, busy: false, t: null, n: 0 };
+    var q = QR;
+    try { src.postMessage({ type: 'tem-qr-ack' }, org); } catch (e) {}
+    $('qrT').textContent = String(tx0.title || 'Scan QR').slice(0, 40);
+    $('qrHint').textContent = String(tx0.hint || 'Point the camera at the QR code').slice(0, 120);
+    $('qrPick').textContent = '🖼️ ' + String(tx0.pick || 'Pick a photo').slice(0, 40);
+    var v = $('qrView'); v.classList.remove('hidden', 'found');
+    try { if (window.BarcodeDetector) q.det = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { q.det = null; }
+    if (!q.det) qrLibLoad().catch(function () {});
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { qrClose('nocam'); return; }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }).then(function (st) {
+      if (QR !== q) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
+      q.stream = st; var vid = $('qrVid'); vid.srcObject = st; vid.play().catch(function () {});
+      var tr = st.getVideoTracks()[0], caps = tr && tr.getCapabilities ? tr.getCapabilities() : {};
+      $('qrTorch').classList.toggle('off', !(caps && caps.torch));
+      q.t = setInterval(qrTick, 160);
+    }).catch(function (er) { qrClose(er && er.name === 'NotAllowedError' ? 'denied' : 'nocam'); });
+  }
+  function qrTick() {
+    var q = QR; if (!q || q.busy) return;
+    var vid = $('qrVid'); if (!vid.videoWidth) return;
+    q.busy = true;
+    var done = function (txt) { q.busy = false; if (txt && QR === q) qrFound(txt); };
+    if (q.det) { q.det.detect(vid).then(function (l) { done(l && l[0] && l[0].rawValue); }).catch(function () { q.det = null; done(''); }); return; }
+    if (!window.jsQR) { q.busy = false; return; }
+    var c = $('qrCv'), w = Math.min(960, vid.videoWidth), h = Math.round(vid.videoHeight * w / vid.videoWidth);
+    c.width = w; c.height = h;
+    var g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(vid, 0, 0, w, h);
+    var r = null; try { r = window.jsQR(g.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: (q.n++ % 2) ? 'invertFirst' : 'dontInvert' }); } catch (e) {}
+    done(r && r.data);
+  }
+  function qrFound(txt) {
+    $('qrView').classList.add('found');
+    try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
+    var q = QR;
+    setTimeout(function () { if (QR === q) qrClose('', String(txt).slice(0, 500)); }, 220);
+  }
+  function qrClose(err, text) {
+    var q = QR; if (!q) return;
+    QR = null; clearInterval(q.t);
+    try { if (q.stream) q.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    $('qrVid').srcObject = null; $('qrView').classList.add('hidden');
+    try { q.src.postMessage({ type: 'tem-qr-res', text: text || '', err: err || '' }, q.org); } catch (e) {}
+  }
+  $('qrX').onclick = function () { qrClose('cancel'); };
+  $('qrPick').onclick = function () { qrClose('pick'); };
+  $('qrTorch').onclick = function () {
+    var q = QR, tr = q && q.stream && q.stream.getVideoTracks()[0]; if (!tr) return;
+    q.torch = !q.torch; tr.applyConstraints({ advanced: [{ torch: q.torch }] }).catch(function () {});
+  };
   /* ===================== chat videos (1.1.35) =====================
      A video plays here, full screen, while it downloads: the service worker asks this page for each piece the
      player needs, this page asks the app, and the app fetches 1 MB parts from Google Drive (several at a time).
