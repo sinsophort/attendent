@@ -54,9 +54,17 @@
   .cv-shade { position: absolute; inset: 0; background: linear-gradient(rgba(0, 0, 0, .5), transparent 28%, transparent 68%, rgba(0, 0, 0, .6)); display: none; pointer-events: none; }
   #callView.has-remote .cv-shade { display: block; }
   /* 1.1.38: live QR scanner (add friends) */
-  #qrView { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #qrView { position: fixed; inset: 0; z-index: 60; background: radial-gradient(120% 90% at 50% 40%, #1e293b 0%, #020617 70%); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: qrIn .22s ease-out; }
+  @keyframes qrIn { from { opacity: 0; transform: scale(1.03); } }
   #qrView.hidden { display: none; }
-  #qrVid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #qrVid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity .35s ease; }
+  /* 1.1.39: "opening the camera" — a calm animated frame instead of a black screen */
+  #qrView.wait #qrVid { opacity: 0; }
+  .qr-wait { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-size: 14px; font-weight: 600; color: #e2e8f0; }
+  #qrView.wait .qr-wait { display: flex; }
+  .qr-wait span { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .22); border-top-color: #22d3ee; animation: qrSpin .8s linear infinite; }
+  @keyframes qrSpin { to { transform: rotate(360deg); } }
+  #qrView.wait #qrHint, #qrView.wait .qr-line { opacity: .35; }
   .qr-frame { position: relative; width: min(68vw, 300px); aspect-ratio: 1; border-radius: 22px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .55); }
   .qr-frame i { position: absolute; width: 38px; height: 38px; border: 4px solid #fff; }
   .qr-frame i:nth-child(1) { left: -2px; top: -2px; border-right: 0; border-bottom: 0; border-radius: 20px 0 0 0; }
@@ -210,7 +218,7 @@
 </div></div>
 <div id="qrView" class="hidden" role="dialog" aria-modal="true" aria-label="Scan QR">
   <video id="qrVid" playsinline autoplay muted></video>
-  <div class="qr-frame"><i></i><i></i><i></i><i></i><b class="qr-line"></b></div>
+  <div class="qr-frame"><i></i><i></i><i></i><i></i><b class="qr-line"></b><div class="qr-wait"><span></span><em id="qrWaitT">Opening the camera…</em></div></div>
   <div class="qr-top"><button type="button" class="vp-b" id="qrX" aria-label="Close">✕</button><span id="qrT">Scan QR</span><button type="button" class="vp-b off" id="qrTorch" aria-label="Light">🔦</button></div>
   <p id="qrHint">Point the camera at the QR code</p>
   <button type="button" id="qrPick">🖼️ Pick a photo</button>
@@ -480,7 +488,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (NAT.send) { NAT.on = true; document.documentElement.classList.add('native'); NAT.send({ t: 'hello' }); }
   })();
   function natSend(o) { if (NAT.on) try { NAT.send(o); } catch (e) {} }
-  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token, version: NAT.version, install: NAT.install }, APPORIGIN); } catch (e) {} }
+  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token, version: NAT.version, install: NAT.install, livePost: !!NAT.livePost, files: !!NAT.files }, APPORIGIN); } catch (e) {} }
   function natEvent(d) {
     if (d.t === 'hello' || d.t === 'token') {
       NAT.platform = d.platform === 'ios' ? 'ios' : 'android';
@@ -488,6 +496,9 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       if (d.bio === true) NAT.bio = true;
       if (d.loc === true) NAT.loc = true;
       if (d.install === true) NAT.install = true;
+      if (d.tone === true) NAT.tone = true;
+      if (d.livePost === true) NAT.livePost = true;
+      if (d.files === true) NAT.files = true;
       if (typeof d.version === 'string') NAT.version = d.version.slice(0, 30);
       natToApp();
     } else if (d.t === 'go') {
@@ -495,6 +506,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       goOnce(String(d.go || ''), String(d.msg || ''), 'n' + Date.now());
     }
     else if (d.t === 'bio') natBioRes(d);
+    else if (d.t === 'liveNat') { if (APPWIN) try { APPWIN.postMessage({ type: 'tem-live-nat', st: String(d.st || '').slice(0, 10) }, APPORIGIN); } catch (er) {} }
     else if (d.t === 'loc' && NAT.geo) NAT.geo({ type: 'tem-geo-pos', id: 'w', lat: Number(d.lat), lng: Number(d.lng), acc: Number(d.acc) || 50, heading: d.heading == null ? null : Number(d.heading), speed: d.speed == null ? null : Number(d.speed), t: Date.now() });
     else if (d.t === 'locErr' && NAT.geo) NAT.geo({ type: 'tem-geo-err', id: 'w', error: d.error === 'denied' ? 'denied' : 'error' });
     else if (d.t === 'saved') { var f = NAT.wait[d.id]; delete NAT.wait[d.id]; if (f) f(!!d.ok, d.why ? String(d.why).slice(0, 40) : ''); }
@@ -588,6 +600,11 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     /* keep the screen on while sharing live location (only the top page may ask for this) */
     if (e.data.type === 'tem-wake') { WAKE.want = !!e.data.on; wakeApply(); }
     /* location: Google's frame blocks it on Android, so the launcher (the top page) asks the phone */
+    /* 1.1.39: live location — our Android app sends the positions to the server itself while the screen is locked */
+    if (e.data.type === 'tem-live-native') {
+      if (NAT.on && NAT.livePost) natSend({ t: 'livePost', url: e.data.on ? String(e.data.url || '').slice(0, 300) : '', ticket: e.data.on ? String(e.data.ticket || '').slice(0, 4000) : '', until: Number(e.data.until) || 0 });
+      return;
+    }
     if (e.data.type === 'tem-geo-get' || e.data.type === 'tem-geo-watch') {
       var src = e.source, org = e.origin, rid = String(e.data.id || '');
       var send = function (m) { try { src.postMessage(m, org); } catch (er) {} };
@@ -959,6 +976,9 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     cvToneStop();
     if (kind === 'in' && navigator.vibrate) { try { navigator.vibrate([400, 250, 400]); } catch (e) {} CV.vib = setInterval(function () { try { navigator.vibrate([400, 250, 400]); } catch (e) {} }, 2000); }
     if (CV.ringApp) return;
+    /* 1.1.39: inside our Android app the "calling…" tone comes from the app on the call's own sound line: the earpiece for a
+       voice call (it was the loudspeaker), the loudspeaker for a video call */
+    if (kind === 'out' && NAT.on && NAT.tone) { CV.natTone = true; natSend({ t: 'tone', kind: 'out' }); return; }
     try {
       var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
       var ac = CV.ac || (CV.ac = new AC());
@@ -977,7 +997,13 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       CV.tone = setInterval(beep, kind === 'in' ? 1600 : 3000); beep();
     } catch (e) { /* silent ring */ }
   }
-  function cvToneStop() { if (!CV) return; clearInterval(CV.tone); CV.tone = null; clearInterval(CV.vib); CV.vib = null; try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {} }
+  function cvToneStop() {
+    if (!CV) return;
+    clearInterval(CV.tone); CV.tone = null; clearInterval(CV.vib); CV.vib = null; try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
+    if (CV.natTone) { CV.natTone = false; natSend({ t: 'tone', kind: '' }); }
+    /* inside the app: let the ringing sound line go (an open "media" sound line can pull the call to the loudspeaker) */
+    if (NAT.on && CV.ac) { try { CV.ac.close(); } catch (e) {} CV.ac = null; }
+  }
   function cvOpen(src, org, d) {
     try { if (VP) $('vpVid').pause(); } catch (e) {}
     var w0 = CV ? CV.wake0 : WAKE.want;
@@ -999,6 +1025,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     v.classList.remove('hidden', 'closing', 'opening', 'ended'); CV_END++; void v.offsetWidth; v.classList.add('opening');
     cvDraw();
     CV.wake0 = WAKE.want; WAKE.want = true; wakeApply();
+    /* 1.1.39: our app sets the earpiece (voice) / loudspeaker (video) first, then the ringing tone and the microphone start */
+    if (CV.role === 'out') natEarly(CV);
     cvTone(CV.role);
     /* the caller's camera / microphone start at once (asked while the other phone rings) */
     if (CV.role === 'out') cvMedia().catch(function () {});
@@ -1056,6 +1084,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       } else {
         var au = c.group ? cvPeerAudio(id) : $('cvAudio');
         if (au.srcObject !== st) { au.srcObject = st; au.play().catch(function () {}); if (c.group) cvSpeakWatch(id, st); }
+        if (NAT.on && c.natOn) setTimeout(function () { if (CV === c) natSend({ t: 'call', st: 'live', video: !!c.video }); }, 250);
       }
     };
     p.pc.onconnectionstatechange = function () {
@@ -1079,9 +1108,9 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       if (ac.state === 'suspended' && ac.resume) ac.resume().catch(function () {});
       var p = c.peers[id]; if (!p) return;
       var an = ac.createAnalyser(); an.fftSize = 512; ac.createMediaStreamSource(stream).connect(an); p.an = an;
-      if (c.spk) return;
+      if (c.spkT) return;
       var buf = new Uint8Array(512);
-      c.spk = setInterval(function () {
+      c.spkT = setInterval(function () {
         if (CV !== c) return;
         cvPeerList().forEach(function (q) {
           if (!q.an) return;
@@ -1185,7 +1214,9 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     var c = CV; if (!c) return;
     if (c.st === 'live') { if (!c.group) cvStatus(c.timer ? '' : ct('connecting')); return; }
     c.st = 'live'; cvToneStop();
-    if (!c.natOn) { c.spk = !!c.video; natSend({ t: 'call', st: 'live', video: !!c.video }); }
+    if (!c.natOn) { c.spk = !!c.video; c.natOn = !c.group; }
+    /* connected: apply the chosen sound route once more (the person's choice is kept) */
+    if (NAT.on) natSend({ t: 'call', st: 'live', video: !!c.video });
     cvDraw();
     cvSend({ type: 'tem-call-state', st: 'live' });
     /* one-to-one: the time starts when the direct line opens on both phones (see cvNewPeer) */
@@ -1237,7 +1268,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     var c = CV; if (!c) return;
     CV = null;
     natSend({ t: 'call', st: 'end' });
-    clearInterval(c.timer); clearInterval(c.tone); clearInterval(c.vib); clearInterval(c.spk);
+    clearInterval(c.timer); clearInterval(c.tone); clearInterval(c.vib); clearInterval(c.spkT);
+    if (c.natTone) natSend({ t: 'tone', kind: '' });
     try { if (c.mac) c.mac.close(); } catch (e) {}
     try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
     Object.keys(c.peers).forEach(function (k) { try { c.peers[k].pc.close(); } catch (e) {} });
@@ -1282,13 +1314,17 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     $('qrT').textContent = String(tx0.title || 'Scan QR').slice(0, 40);
     $('qrHint').textContent = String(tx0.hint || 'Point the camera at the QR code').slice(0, 120);
     $('qrPick').textContent = '🖼️ ' + String(tx0.pick || 'Pick a photo').slice(0, 40);
-    var v = $('qrView'); v.classList.remove('hidden', 'found');
+    $('qrWaitT').textContent = String(tx0.wait || 'Opening the camera…').slice(0, 60);
+    var v = $('qrView'); v.classList.remove('hidden', 'found'); v.classList.add('wait');
     try { if (window.BarcodeDetector) q.det = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { q.det = null; }
     if (!q.det) qrLibLoad().catch(function () {});
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { qrClose('nocam'); return; }
     navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }).then(function (st) {
       if (QR !== q) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
-      q.stream = st; var vid = $('qrVid'); vid.srcObject = st; vid.play().catch(function () {});
+      q.stream = st; var vid = $('qrVid');
+      vid.onplaying = function () { if (QR === q) $('qrView').classList.remove('wait'); };
+      vid.srcObject = st; vid.play().catch(function () {});
+      setTimeout(function () { if (QR === q) $('qrView').classList.remove('wait'); }, 2500);
       var tr = st.getVideoTracks()[0], caps = tr && tr.getCapabilities ? tr.getCapabilities() : {};
       $('qrTorch').classList.toggle('off', !(caps && caps.torch));
       q.t = setInterval(qrTick, 160);
