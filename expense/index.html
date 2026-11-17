@@ -116,6 +116,7 @@
   .cv-tile i { position: absolute; right: 8px; top: 8px; font-style: normal; font-size: 13px; }
   #cvDark { position: absolute; inset: 0; z-index: 5; background: #000; color: rgba(255, 255, 255, .35); display: flex; align-items: flex-end; justify-content: center; padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px)); font-size: 13px; }
   #cvDark.hidden { display: none; }
+  html.native #installBar, html.native #iosBar, html.native #ntfBar { display: none !important; }
   .cv-tile { transition: box-shadow .15s; }
   .cv-tile.speaking { box-shadow: inset 0 0 0 3px #22c55e, 0 0 18px rgba(34, 197, 94, .45); }
   /* 1.1.35: a chat video, full screen, playing while it downloads */
@@ -429,6 +430,46 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') goWatch(); });
   window.addEventListener('focus', goWatch);
   window.addEventListener('pageshow', goWatch);
+  /* ===================== the Android / iPhone app around this launcher (1.1.36) =====================
+     Inside our own app the launcher talks to it: its push token, calls (speaker, screen off at the ear),
+     saving straight to the Gallery / Photos, and "open this" when a notification is tapped. */
+  var NAT = { on: false, platform: '', token: '', send: null, wait: {}, n: 0 };
+  (function () {
+    try {
+      if (window.TripNative && typeof window.TripNative.postMessage === 'function') {
+        NAT.send = function (o) { window.TripNative.postMessage(JSON.stringify(o)); };
+        window.TripNative.onmessage = function (e) { var d = null; try { d = JSON.parse(e.data); } catch (er) {} if (d) natEvent(d); };
+      } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.trip) {
+        NAT.send = function (o) { window.webkit.messageHandlers.trip.postMessage(JSON.stringify(o)); };
+        window.__tripNative = function (d) { if (d && typeof d === 'object') natEvent(d); };
+      }
+    } catch (e) { NAT.send = null; }
+    if (NAT.send) { NAT.on = true; document.documentElement.classList.add('native'); NAT.send({ t: 'hello' }); }
+  })();
+  function natSend(o) { if (NAT.on) try { NAT.send(o); } catch (e) {} }
+  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token }, APPORIGIN); } catch (e) {} }
+  function natEvent(d) {
+    if (d.t === 'hello' || d.t === 'token') {
+      NAT.platform = d.platform === 'ios' ? 'ios' : 'android';
+      if (typeof d.token === 'string') NAT.token = d.token.slice(0, 4000);
+      natToApp();
+    } else if (d.t === 'go') goOnce(String(d.go || ''), String(d.msg || ''), 'n' + Date.now());
+    else if (d.t === 'saved') { var f = NAT.wait[d.id]; delete NAT.wait[d.id]; if (f) f(!!d.ok); }
+  }
+  /* save a photo / video / file through the app: straight into the Gallery (Android) or Photos (iPhone) */
+  function natSave(blob, name, media, reply) {
+    var id = 's' + (++NAT.n), CH = 393216, off = 0;
+    NAT.wait[id] = function (ok) { reply(ok ? { ok: true, how: 'native', media: !!media } : { ok: false, err: 'fail' }); };
+    natSend({ t: 'saveBegin', id: id, name: name, mime: blob.type || 'application/octet-stream', media: !!media, size: blob.size });
+    var next = function () {
+      if (off >= blob.size) { natSend({ t: 'saveEnd', id: id }); return; }
+      var part = blob.slice(off, off + CH), r = new FileReader();
+      r.onload = function () { natSend({ t: 'saveChunk', id: id, b64: String(r.result).split(',')[1] || '' }); off += CH; setTimeout(next, 0); };
+      r.onerror = function () { delete NAT.wait[id]; reply({ ok: false, err: 'fail' }); };
+      r.readAsDataURL(part);
+    };
+    next();
+  }
   /* save a photo or file from the app to the phone (Google's frame may not be allowed to download) */
   function saveFile(blob, name) {
     if (!(blob instanceof Blob)) return;
@@ -449,14 +490,14 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   window.addEventListener('message', function (e) {
     if (!okOrigin(e.origin) || !e.data || typeof e.data !== 'object') return;
     if (e.source && e.data.type !== 'tem-go') { APPWIN = e.source; APPORIGIN = e.origin; if (PENDING_GO && e.data.type === 'tem-ready') sendGo(PENDING_GO, PENDING_MSG); }
-    if (e.data.type === 'tem-ready') hideSplash();
+    if (e.data.type === 'tem-ready') { hideSplash(); natToApp(); }
     if (e.data.type === 'tem-save') {
       var vsrc = e.source, vorg = e.origin;
       try { vsrc.postMessage({ type: 'tem-save-ack' }, vorg); } catch (er) {}
       saveMedia(e.data.blob, e.data.name, !!e.data.media, function (r) { try { vsrc.postMessage(Object.assign({ type: 'tem-save-res' }, r), vorg); } catch (er) {} });
     }
     /* calls */
-    if (e.data.type === 'tem-call-open') cvOpen(e.source, e.origin, e.data);
+    if (e.data.type === 'tem-call-open') { cvOpen(e.source, e.origin, e.data); if (e.data.auto && e.data.role === 'in') setTimeout(cvAccept, 60); }
     if (e.data.type === 'tem-call-go' && CV) cvGo(e.data);
     if (e.data.type === 'tem-call-answer' && CV) cvAnswer(e.data.sdp, e.data.peer);
     /* group calls: one connection per person */
@@ -722,6 +763,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   function saveMedia(blob, name, media, reply) {
     if (!(blob instanceof Blob)) return;
     name = String(name || 'file').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'file';
+    if (NAT.on) { natSave(blob, name, media, reply); return; }
     var file = null;
     try { file = new File([blob], name, { type: blob.type || 'application/octet-stream' }); } catch (e) { file = null; }
     var share = false;
@@ -778,11 +820,12 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     flip: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 5h-3.2L15 3H9L7.2 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-5 11.5V14H9v2.5L5.5 13 9 9.5V12h6V9.5l3.5 3.5-3.5 3.5z"/></svg>',
     end: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-1.6 0-3.2.3-4.6.7v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.6 1.8-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3L.3 13c-.2-.2-.3-.4-.3-.7 0-.3.1-.5.3-.7A16.9 16.9 0 0 1 12 7c4.5 0 8.6 1.7 11.7 4.6.2.2.3.4.3.7 0 .3-.1.5-.3.7l-2.5 2.5c-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3-.7-.7-1.6-1.3-2.6-1.8-.3-.2-.6-.5-.6-.9V9.7C15.2 9.3 13.6 9 12 9z"/></svg>',
     phone: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>',
+    spk: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>',
     ear: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 20c-.3 0-.6-.1-.8-.2-.7-.4-1.2-.9-1.7-2.4-.5-1.6-1.5-2.4-2.4-3.1-.8-.6-1.6-1.3-2.3-2.5-.5-.9-.8-1.9-.8-2.8 0-2.8 2.2-5 5-5s5 2.2 5 5h2c0-3.9-3.1-7-7-7S7 4.1 7 8c0 1.3.4 2.6 1 3.8.9 1.6 1.9 2.4 2.8 3.1.8.6 1.4 1.1 1.7 2.1.6 1.8 1.4 2.8 2.7 3.5.6.3 1.2.5 1.8.5 2.2 0 4-1.8 4-4h-2c0 1.1-.9 2-2 2zM7.6 2.1 6.2.7A10 10 0 0 0 3 8a10 10 0 0 0 3.2 7.3l1.4-1.4A8 8 0 0 1 5 8c0-2.3 1-4.4 2.6-5.9zM11.5 8a2.5 2.5 0 1 0 5 0 2.5 2.5 0 0 0-5 0z"/></svg>'
   };
   var CT0 = { calling: 'Calling…', ringing: 'Ringing…', connecting: 'Connecting…', reconnecting: 'Reconnecting…', inVoice: 'Incoming voice call', inVideo: 'Incoming video call',
     accept: 'Accept', decline: 'Decline', end: 'End', mute: 'Mute', unmute: 'Unmute', cam: 'Camera', flip: 'Flip', ear: 'Ear', earHint: 'Tap twice to light the screen', ended: 'Call ended', declined: 'Declined', busy: 'Busy',
-    noanswer: 'No answer', failed: 'The call could not connect', nomedia: 'Allow the microphone (and camera) for this app', missed: 'Missed call', muted: 'Muted', camOff: 'Camera off', people: '{0} in the call', inGroup: 'Group call', join: 'Join' };
+    noanswer: 'No answer', speaker: 'Speaker', failed: 'The call could not connect', nomedia: 'Allow the microphone (and camera) for this app', missed: 'Missed call', muted: 'Muted', camOff: 'Camera off', people: '{0} in the call', inGroup: 'Group call', join: 'Join' };
   function ct(k, a) { var t = (CV && CV.txt && CV.txt[k]) || CT0[k] || k; return a === undefined ? t : String(t).replace('{0}', a); }
   function cvSend(m) { try { if (CV && CV.src) CV.src.postMessage(m, CV.org); } catch (e) {} }
   function cvBtn(id, ico, label, cls) { return '<button type="button" class="cv-b ' + (cls || '') + '" id="' + id + '"><span>' + ico + '</span><small>' + label + '</small></button>'; }
@@ -797,7 +840,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     var b = $('cvBtns');
     if (CV.role === 'in' && !CV.accepted) b.innerHTML = cvBtn('cvNo', CI.end, ct('decline'), 'red') + cvBtn('cvYes', CV.video ? CI.cam : CI.phone, ct(CV.group ? 'join' : 'accept'), 'green');
     else b.innerHTML = cvBtn('cvMute', CV.muted ? CI.micOff : CI.mic, ct(CV.muted ? 'unmute' : 'mute'), CV.muted ? 'on' : '') +
-      (CV.video ? cvBtn('cvCam', CV.camOff ? CI.camOff : CI.cam, ct('cam'), CV.camOff ? 'on' : '') + cvBtn('cvFlip', CI.flip, ct('flip')) : cvBtn('cvEar', CI.ear, ct('ear'))) + cvBtn('cvEnd', CI.end, ct('end'), 'red');
+      (CV.video ? cvBtn('cvCam', CV.camOff ? CI.camOff : CI.cam, ct('cam'), CV.camOff ? 'on' : '') + cvBtn('cvFlip', CI.flip, ct('flip')) : NAT.on ? '' : cvBtn('cvEar', CI.ear, ct('ear'))) +
+      (NAT.on ? cvBtn('cvSpk', CI.spk, ct('speaker'), CV.spk ? 'on' : '') : '') + cvBtn('cvEnd', CI.end, ct('end'), 'red');
     var on = function (id, f) { var x = $(id); if (x) x.onclick = f; };
     on('cvNo', function () { cvSend({ type: 'tem-call-decline' }); cvStop(ct('declined')); });
     on('cvYes', function () { cvAccept(); });
@@ -805,6 +849,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     on('cvMute', function () { CV.muted = !CV.muted; cvTracks('audio', !CV.muted); cvCtlAll('mute:' + (CV.muted ? 1 : 0)); cvDraw(); });
     on('cvCam', function () { CV.camOff = !CV.camOff; cvTracks('video', !CV.camOff); $('cvLocal').classList.toggle('off', CV.camOff); cvCtlAll('cam:' + (CV.camOff ? 0 : 1)); cvDraw(); });
     on('cvFlip', function () { cvFlip(); });
+    on('cvSpk', function () { CV.spk = !CV.spk; natSend({ t: 'speaker', on: CV.spk }); cvDraw(); });
     on('cvEar', function () { var dk = $('cvDark'); dk.textContent = ct('earHint'); dk.classList.remove('hidden'); });
     cvPeerUi();
   }
@@ -1048,6 +1093,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   }
   function cvAccept() {
     if (!CV || CV.accepted) return;
+    natSend({ t: 'ringStop' });
     CV.accepted = true; cvToneStop();
     /* this tap also lets the phone play the other person's voice */
     try { if (CV.ac && CV.ac.resume) CV.ac.resume(); $('cvAudio').play().catch(function () {}); } catch (e) {}
@@ -1063,7 +1109,9 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   function cvLive() {
     var c = CV; if (!c) return;
     if (c.st === 'live') { if (!c.group) cvStatus(c.timer ? '' : ct('connecting')); return; }
-    c.st = 'live'; cvToneStop(); cvDraw();
+    c.st = 'live'; cvToneStop();
+    c.spk = !!c.video; natSend({ t: 'call', st: 'live', video: !!c.video });
+    cvDraw();
     cvSend({ type: 'tem-call-state', st: 'live' });
     /* one-to-one: the time starts when the direct line opens on both phones (see cvNewPeer) */
     var p = c.peers.p;
@@ -1094,6 +1142,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   function cvStop(text, quick) {
     var c = CV; if (!c) return;
     CV = null;
+    natSend({ t: 'call', st: 'end' });
     clearInterval(c.timer); clearInterval(c.tone); clearInterval(c.vib); clearInterval(c.spk);
     try { if (c.mac) c.mac.close(); } catch (e) {}
     try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
