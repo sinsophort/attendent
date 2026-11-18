@@ -403,7 +403,12 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       if (!WAKE.want && WAKE.s) { WAKE.s.release().catch(function () {}); WAKE.s = null; }
     } catch (e) {}
   }
-  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') wakeApply(); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    wakeApply();
+    /* 1.1.42: back on the screen during a call (answered from the lock screen, iPhone): start the other voice again */
+    try { if (CV) { var au = $('cvAudio'); if (au && au.srcObject && au.paused) au.play().catch(function () {}); if (CV.ac && CV.ac.state === 'suspended') CV.ac.resume(); } } catch (e) {}
+  });
   var MIC = { src: null, origin: '*', mr: null, stream: null, sr: null, chunks: [], cancel: false, timer: null, levels: false, meter: null, ac: null };
   function micReply(m) { try { if (MIC.src) MIC.src.postMessage(m, MIC.origin); } catch (e) {} }
   function micStart(lang, mode, maxSec) {
@@ -542,10 +547,31 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (NAT.send) { NAT.on = true; document.documentElement.classList.add('native'); NAT.send({ t: 'hello' }); }
   })();
   function natSend(o) { if (NAT.on) try { NAT.send(o); } catch (e) {} }
-  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token, version: NAT.version, install: NAT.install, livePost: !!NAT.livePost, files: !!NAT.files }, APPORIGIN); } catch (e) {} }
+  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token, version: NAT.version, install: NAT.install, livePost: !!NAT.livePost, files: !!NAT.files, notif: NAT.notif || '', fsi: NAT.fsi, bat: NAT.bat, voip: NAT.voip || '' }, APPORIGIN); } catch (e) {} }
+  /* 1.1.42: the strip under the phone's clock takes the colour of the app's top bar, and the Android / iPhone app is told
+     whether the clock digits must be dark (light page) or white (dark page, call screen, start screen) */
+  var THEME = { dark: false, bar: '#ffffff' }, BAR_SENT = '';
+  function shown(id) { var el = $(id); return !!el && !el.classList.contains('hidden'); }
+  function barSync() {
+    var black = shown('callView') || shown('vpView') || shown('qrView'), over = black || shown('splash') || shown('setup');
+    var dark = over ? true : THEME.dark, col = black ? '#000000' : over ? '#1e3a8a' : THEME.bar;
+    if (!over) { document.documentElement.style.background = col; document.body.style.background = col; }
+    var meta = document.querySelector('meta[name=theme-color]'); if (meta && meta.getAttribute('content') !== col) meta.setAttribute('content', col);
+    var key = (dark ? 'd' : 'l') + col;
+    if (key === BAR_SENT || !NAT.on) return;
+    BAR_SENT = key;
+    natSend({ t: 'bar', dark: dark, color: col });
+  }
+  setInterval(barSync, 500);
   function natEvent(d) {
-    if (d.t === 'hello' || d.t === 'token') {
-      NAT.platform = d.platform === 'ios' ? 'ios' : 'android';
+    if (d.t === 'hello' || d.t === 'token' || d.t === 'perm') {
+      if (d.t === 'hello') BAR_SENT = '';
+      if (typeof d.notif === 'string') NAT.notif = d.notif === 'granted' || d.notif === 'denied' ? d.notif : '';
+      if (typeof d.fsi === 'boolean') NAT.fsi = d.fsi;
+      if (typeof d.bat === 'boolean') NAT.bat = d.bat;
+      /* 1.1.43: the iPhone's call-push token (CallKit) */
+      if (typeof d.voip === 'string' && /^[0-9a-fA-F]{0,200}$/.test(d.voip)) NAT.voip = d.voip;
+      if (typeof d.platform === 'string' || !NAT.platform) NAT.platform = d.platform === 'ios' ? 'ios' : 'android';
       if (typeof d.token === 'string') NAT.token = d.token.slice(0, 4000);
       if (d.bio === true) NAT.bio = true;
       if (d.loc === true) NAT.loc = true;
@@ -560,6 +586,9 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       goOnce(String(d.go || ''), String(d.msg || ''), 'n' + Date.now());
     }
     else if (d.t === 'bio') natBioRes(d);
+    /* 1.1.43: hung up on the iPhone's own call screen (CallKit) */
+    else if (d.t === 'hangup') { if (CV) { cvBye(); cvSend({ type: 'tem-call-hangup' }); cvStop(ct('ended')); } }
+    else if (d.t === 'mute') { if (CV && !!CV.muted !== !!d.on) { CV.muted = !!d.on; cvTracks('audio', !CV.muted); cvCtlAll('mute:' + (CV.muted ? 1 : 0)); cvDraw(); } }
     else if (d.t === 'liveNat') { if (APPWIN) try { APPWIN.postMessage({ type: 'tem-live-nat', st: String(d.st || '').slice(0, 10) }, APPORIGIN); } catch (er) {} }
     else if (d.t === 'loc' && NAT.geo) NAT.geo({ type: 'tem-geo-pos', id: 'w', lat: Number(d.lat), lng: Number(d.lng), acc: Number(d.acc) || 50, heading: d.heading == null ? null : Number(d.heading), speed: d.speed == null ? null : Number(d.speed), t: Date.now() });
     else if (d.t === 'locErr' && NAT.geo) NAT.geo({ type: 'tem-geo-err', id: 'w', error: d.error === 'denied' ? 'denied' : 'error' });
@@ -599,7 +628,15 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   window.addEventListener('message', function (e) {
     if (!okOrigin(e.origin) || !e.data || typeof e.data !== 'object') return;
     if (e.source && e.data.type !== 'tem-go') { APPWIN = e.source; APPORIGIN = e.origin; if (PENDING_GO && e.data.type === 'tem-ready') sendGo(PENDING_GO, PENDING_MSG); }
-    if (e.data.type === 'tem-ready') { hideSplash(); natToApp(); }
+    if (e.data.type === 'tem-ready') { hideSplash(); natToApp(); barSync(); }
+    /* 1.1.42: the app's colours (for the strip under the clock), and asks for the phone app */
+    if (e.data.type === 'tem-theme') {
+      THEME.dark = !!e.data.dark;
+      if (/^#[0-9a-fA-F]{3,8}$/.test(String(e.data.bar || ''))) THEME.bar = String(e.data.bar); else THEME.bar = THEME.dark ? '#121b2e' : '#ffffff';
+      barSync();
+    }
+    if (e.data.type === 'tem-native-settings' && /^(notif|fsi|bat)$/.test(String(e.data.what || ''))) natSend({ t: 'settings', what: String(e.data.what) });
+    if (e.data.type === 'tem-native-hello') natSend({ t: 'hello' });
     if (e.data.type === 'tem-save') {
       var vsrc = e.source, vorg = e.origin;
       try { vsrc.postMessage({ type: 'tem-save-ack' }, vorg); } catch (er) {}
