@@ -20,7 +20,11 @@
   /* Trip Expense Manager — PWA Launcher: opens the Apps Script web app full screen with a proper icon and name */
   :root { --c1: #2563eb; --c2: #14b8a6; }
   html, body { margin: 0; height: 100%; background: #f3f6fb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Kantumruy Pro", "Noto Sans Khmer", sans-serif; overscroll-behavior: none; }
-  #app { position: fixed; left: 0; right: 0; top: env(safe-area-inset-top, 0px); bottom: 0; width: 100%; height: calc(100% - env(safe-area-inset-top, 0px)); border: 0; background: #f3f6fb; }
+  /* 1.1.44: the app fills the whole screen, also under the iPhone's clock; it is told the clock strip's height (tem-inset)
+     and starts its top bar right under it (before: the frame started under the clock AND the app left the gap again) */
+  #app { position: fixed; left: 0; right: 0; top: 0; bottom: 0; width: 100%; height: 100%; border: 0; background: #f3f6fb; }
+  #insetProbe { position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
   .layer { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: linear-gradient(160deg, #1e3a8a, #0f766e); color: #fff; text-align: center; }
   .hidden { display: none !important; }
   .logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 16px 40px rgba(0, 0, 0, .3); }
@@ -93,7 +97,8 @@
   #callView.video #cvLocal { display: block; } #callView.video.incoming #cvLocal { display: none; } #cvLocal.back { transform: none; } #cvLocal.off { opacity: .15; }
   .cv-btns { position: relative; display: flex; gap: 22px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
   .cv-b { border: 0; background: none; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 8px; font: inherit; cursor: pointer; padding: 0; }
-  .cv-b span { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .18); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: transform .12s; }
+  .cv-b span { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .2); transition: transform .12s; }
+  .cv-b { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   .cv-b:active span { transform: scale(.9); }
   .cv-b svg { width: 28px; height: 28px; } .cv-b small { font-size: 12.5px; opacity: .92; }
   .cv-b.on span { background: #fff; color: #0b1220; }
@@ -110,7 +115,7 @@
   /* 1.1.34: livelier call screen, group grid, ear mode */
   #callView.opening { animation: cvIn .32s cubic-bezier(.2, .9, .25, 1); }
   @keyframes cvIn { from { opacity: 0; transform: translateY(24px) scale(.98); } to { opacity: 1; transform: none; } }
-  #callView.closing { animation: cvOut 2.2s ease-in forwards; }
+  #callView.closing { animation: cvOut 1.3s ease-in forwards; }
   /* 1.1.38: the end of a call: photo (grey), "Call ended", the time */
   #callView.ended #cvRemote, #callView.ended #cvLocal, #callView.ended .cv-grid { display: none !important; }
   #callView.ended .cv-av { display: grid !important; filter: grayscale(.85); opacity: .85; animation: cvEndPop .35s ease-out; }
@@ -137,10 +142,12 @@
   /* ===== 1.1.40: a calm, colourful call screen ===== */
   #callView { background: #0b1220; }
   .cv-bg { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
-  .cv-bg b { position: absolute; width: 75vmax; height: 75vmax; border-radius: 50%; filter: blur(70px); opacity: .5; background: var(--cv-c, #2563eb); animation: cvDrift 16s ease-in-out infinite alternate; }
+  /* 1.1.44: soft colour circles drawn as gradients (a blur filter on big moving layers made taps and the call stutter) */
+  .cv-bg b { position: absolute; width: 75vmax; height: 75vmax; border-radius: 50%; opacity: .55; background: radial-gradient(closest-side, var(--cv-c, #2563eb), transparent); animation: cvDrift 16s ease-in-out infinite alternate; will-change: transform; }
   .cv-bg b:nth-of-type(1) { left: -30vmax; top: -28vmax; }
-  .cv-bg b:nth-of-type(2) { right: -38vmax; top: 18vh; background: #7c3aed; opacity: .38; animation-duration: 21s; animation-delay: -6s; }
-  .cv-bg b:nth-of-type(3) { left: -18vmax; bottom: -44vmax; background: #0891b2; opacity: .34; animation-duration: 25s; animation-delay: -11s; }
+  .cv-bg b:nth-of-type(2) { right: -38vmax; top: 18vh; background: radial-gradient(closest-side, #7c3aed, transparent); opacity: .42; animation-duration: 21s; animation-delay: -6s; }
+  .cv-bg b:nth-of-type(3) { left: -18vmax; bottom: -44vmax; background: radial-gradient(closest-side, #0891b2, transparent); opacity: .38; animation-duration: 25s; animation-delay: -11s; }
+  #callView.live .cv-bg b, #callView.video .cv-bg b { animation-play-state: paused; }
   .cv-bg i { position: absolute; inset: -12%; background-size: cover; background-position: center; filter: blur(46px) saturate(1.25) brightness(.6); opacity: 0; transition: opacity .5s; }
   .cv-bg.photo i { opacity: 1; } .cv-bg.photo b { opacity: .22; }
   .cv-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(2, 6, 23, .15), rgba(2, 6, 23, .35) 55%, rgba(2, 6, 23, .8)); }
@@ -159,7 +166,7 @@
   #callView.group .cv-avw { width: 72px; height: 72px; margin-bottom: 8px; }
   #callView.ended .cv-avw { display: block; }
   #cvName { text-shadow: 0 2px 12px rgba(0, 0, 0, .35); letter-spacing: .2px; }
-  #cvSt { display: inline-block; padding: 5px 14px; border-radius: 999px; background: rgba(255, 255, 255, .12); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-weight: 600; font-size: 14px; }
+  #cvSt { display: inline-block; padding: 5px 14px; border-radius: 999px; background: rgba(255, 255, 255, .14); font-weight: 600; font-size: 14px; }
   #cvSt:empty { display: none; }
   #callView.live .cv-time { font-size: 17px; font-weight: 600; }
   /* coming in: the photo pops, the name and the buttons rise one after the other */
@@ -171,7 +178,7 @@
   @keyframes cvPop { from { transform: scale(.6); opacity: 0; } }
   @keyframes cvRise { from { transform: translateY(18px); opacity: 0; } }
   /* the buttons sit on a frosted bar while talking */
-  #callView.live:not(.ended) .cv-btns { background: rgba(15, 23, 42, .38); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); border-radius: 30px; padding: 14px 16px 10px; gap: 14px; border: 1px solid rgba(255, 255, 255, .08); }
+  #callView.live:not(.ended) .cv-btns { background: rgba(15, 23, 42, .55); border-radius: 30px; padding: 14px 16px 10px; gap: 14px; border: 1px solid rgba(255, 255, 255, .08); }
   #callView.incoming .cv-b span { width: 74px; height: 74px; } #callView.incoming .cv-b svg { width: 32px; height: 32px; }
   /* 1.1.40: while talking, the buttons go away after a few seconds; a tap brings them back */
   .cv-top, .cv-btns, #cvLocal { transition: opacity .35s ease, transform .35s ease; }
@@ -547,7 +554,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (NAT.send) { NAT.on = true; document.documentElement.classList.add('native'); NAT.send({ t: 'hello' }); }
   })();
   function natSend(o) { if (NAT.on) try { NAT.send(o); } catch (e) {} }
-  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token, version: NAT.version, install: NAT.install, livePost: !!NAT.livePost, files: !!NAT.files, notif: NAT.notif || '', fsi: NAT.fsi, bat: NAT.bat, voip: NAT.voip || '' }, APPORIGIN); } catch (e) {} }
+  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token, version: NAT.version, install: NAT.install, livePost: !!NAT.livePost, files: !!NAT.files, notif: NAT.notif || '', fsi: NAT.fsi, bat: NAT.bat, voip: NAT.voip || '', apns: NAT.apns || '' }, APPORIGIN); } catch (e) {} }
   /* 1.1.42: the strip under the phone's clock takes the colour of the app's top bar, and the Android / iPhone app is told
      whether the clock digits must be dark (light page) or white (dark page, call screen, start screen) */
   var THEME = { dark: false, bar: '#ffffff' }, BAR_SENT = '';
@@ -563,6 +570,20 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     natSend({ t: 'bar', dark: dark, color: col });
   }
   setInterval(barSync, 500);
+  /* 1.1.44: the sizes of the phone's clock strip / home bar, for the app inside (it covers the whole screen) */
+  var INSET_SENT = '';
+  function insetTell(force) {
+    if (!APPWIN) return;
+    var pr = $('insetProbe'); if (!pr) { pr = document.createElement('div'); pr.id = 'insetProbe'; document.body.appendChild(pr); }
+    var cs = getComputedStyle(pr), px = function (v) { return Math.max(0, Math.round(parseFloat(v) || 0)); };
+    var o = { type: 'tem-inset', t: px(cs.paddingTop), r: px(cs.paddingRight), b: px(cs.paddingBottom), l: px(cs.paddingLeft) };
+    var key = [o.t, o.r, o.b, o.l].join(',');
+    if (key === INSET_SENT && !force) return;
+    INSET_SENT = key;
+    try { APPWIN.postMessage(o, APPORIGIN); } catch (e) {}
+  }
+  setInterval(function () { insetTell(false); }, 1000);
+  window.addEventListener('resize', function () { setTimeout(function () { insetTell(false); }, 60); });
   function natEvent(d) {
     if (d.t === 'hello' || d.t === 'token' || d.t === 'perm') {
       if (d.t === 'hello') BAR_SENT = '';
@@ -571,6 +592,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       if (typeof d.bat === 'boolean') NAT.bat = d.bat;
       /* 1.1.43: the iPhone's call-push token (CallKit) */
       if (typeof d.voip === 'string' && /^[0-9a-fA-F]{0,200}$/.test(d.voip)) NAT.voip = d.voip;
+      /* 1.1.44: the iPhone's own Apple token (alerts straight to Apple through the relay) */
+      if (typeof d.apns === 'string' && /^[0-9a-fA-F]{0,200}$/.test(d.apns)) NAT.apns = d.apns;
       if (typeof d.platform === 'string' || !NAT.platform) NAT.platform = d.platform === 'ios' ? 'ios' : 'android';
       if (typeof d.token === 'string') NAT.token = d.token.slice(0, 4000);
       if (d.bio === true) NAT.bio = true;
@@ -628,7 +651,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   window.addEventListener('message', function (e) {
     if (!okOrigin(e.origin) || !e.data || typeof e.data !== 'object') return;
     if (e.source && e.data.type !== 'tem-go') { APPWIN = e.source; APPORIGIN = e.origin; if (PENDING_GO && e.data.type === 'tem-ready') sendGo(PENDING_GO, PENDING_MSG); }
-    if (e.data.type === 'tem-ready') { hideSplash(); natToApp(); barSync(); }
+    if (e.data.type === 'tem-ready') { hideSplash(); natToApp(); barSync(); insetTell(true); }
     /* 1.1.42: the app's colours (for the strip under the clock), and asks for the phone app */
     if (e.data.type === 'tem-theme') {
       THEME.dark = !!e.data.dark;
@@ -655,6 +678,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       else { cvOpen(e.source, e.origin, e.data); if (e.data.auto && e.data.role === 'in') setTimeout(cvAccept, 60); }
     }
     if (e.data.type === 'tem-call-go' && CV) cvGo(e.data);
+    /* 1.1.44: the other person answered on the iPhone's own call screen; the call connects when their app opens */
+    if (e.data.type === 'tem-call-status' && CV && CV.st !== 'live' && e.data.k === 'picked') { CV.picked = true; cvStatus(ct('picked')); }
     if (e.data.type === 'tem-call-answer' && CV) cvAnswer(e.data.sdp, e.data.peer);
     /* group calls: one connection per person */
     if (e.data.type === 'tem-call-offer-to' && CV) cvOffer(String(e.data.peer || '').slice(0, 40), String(e.data.name || '').slice(0, 60), e.data.ice, e.data.ini);
@@ -1007,7 +1032,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     ear: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 20c-.3 0-.6-.1-.8-.2-.7-.4-1.2-.9-1.7-2.4-.5-1.6-1.5-2.4-2.4-3.1-.8-.6-1.6-1.3-2.3-2.5-.5-.9-.8-1.9-.8-2.8 0-2.8 2.2-5 5-5s5 2.2 5 5h2c0-3.9-3.1-7-7-7S7 4.1 7 8c0 1.3.4 2.6 1 3.8.9 1.6 1.9 2.4 2.8 3.1.8.6 1.4 1.1 1.7 2.1.6 1.8 1.4 2.8 2.7 3.5.6.3 1.2.5 1.8.5 2.2 0 4-1.8 4-4h-2c0 1.1-.9 2-2 2zM7.6 2.1 6.2.7A10 10 0 0 0 3 8a10 10 0 0 0 3.2 7.3l1.4-1.4A8 8 0 0 1 5 8c0-2.3 1-4.4 2.6-5.9zM11.5 8a2.5 2.5 0 1 0 5 0 2.5 2.5 0 0 0-5 0z"/></svg>'
   };
   var CT0 = { video: 'Video', camOn: '{0} turned on the camera', calling: 'Calling…', ringing: 'Ringing…', connecting: 'Connecting…', reconnecting: 'Reconnecting…', inVoice: 'Incoming voice call', inVideo: 'Incoming video call',
-    accept: 'Accept', decline: 'Decline', end: 'End', mute: 'Mute', unmute: 'Unmute', cam: 'Camera', flip: 'Flip', ear: 'Ear', earHint: 'Tap twice to light the screen', ended: 'Call ended', declined: 'Declined', busy: 'Busy',
+    picked: 'Answered — connecting…', accept: 'Accept', decline: 'Decline', end: 'End', mute: 'Mute', unmute: 'Unmute', cam: 'Camera', flip: 'Flip', ear: 'Ear', earHint: 'Tap twice to light the screen', ended: 'Call ended', declined: 'Declined', busy: 'Busy',
     noanswer: 'No answer', speaker: 'Speaker', failed: 'The call could not connect', nomedia: 'Allow the microphone (and camera) for this app', missed: 'Missed call', muted: 'Muted', camOff: 'Camera off', people: '{0} in the call', inGroup: 'Group call', join: 'Join' };
   function ct(k, a) { var t = (CV && CV.txt && CV.txt[k]) || CT0[k] || k; return a === undefined ? t : String(t).replace('{0}', a); }
   function cvSend(m) {
@@ -1120,7 +1145,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   function cvIdleArm() {
     var c = CV, v = $('callView'); if (!c) return;
     clearTimeout(c.idleT); v.classList.remove('cv-idle');
-    if (c.st === 'live' && !(c.role === 'in' && !c.accepted)) c.idleT = setTimeout(function () { if (CV === c && c.st === 'live') v.classList.add('cv-idle'); }, 5000);
+    /* 1.1.44: only a video call hides them (a voice call keeps its buttons: a tap on "End" always ends at once) */
+    if (c.st === 'live' && c.video && !(c.role === 'in' && !c.accepted)) c.idleT = setTimeout(function () { if (CV === c && c.st === 'live' && c.video) v.classList.add('cv-idle'); }, 5000);
   }
   $('callView').addEventListener('pointerdown', function (e) {
     var v = $('callView');
@@ -1131,6 +1157,13 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     cvIdleArm();
   }, true);
   $('callView').addEventListener('click', function (e) { var v = $('callView'); if (v.__eat) { v.__eat = false; e.preventDefault(); e.stopPropagation(); } }, true);
+  /* 1.1.44: a tap on "Call ended" closes it at once */
+  $('callView').addEventListener('click', function (e) {
+    var v = $('callView');
+    /* not the tap on End itself (it shows "Call ended" first) */
+    if (CV || !v.classList.contains('ended') || Date.now() - (v.__endT || 0) < 350 || (e.target && e.target.closest && e.target.closest('.cv-b'))) return;
+    CV_END++; v.classList.add('hidden'); v.classList.remove('ended', 'closing');
+  });
   function cvHint(t) {
     var v = $('callView'), h = $('cvHint');
     if (!h) { h = document.createElement('div'); h.id = 'cvHint'; h.className = 'cv-hint'; v.appendChild(h); }
@@ -1286,8 +1319,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       };
     } catch (e) { p.dc = null; }
     p.pc.ontrack = function (e) {
-      /* 1.1.38: play the other voice as soon as it arrives (the smallest safe buffer; the browser grows it on a bad line) */
-      try { if (e.receiver) { if ('jitterBufferTarget' in e.receiver) e.receiver.jitterBufferTarget = 0; if ('playoutDelayHint' in e.receiver) e.receiver.playoutDelayHint = 0; } } catch (er) {}
+      /* 1.1.44: the phone chooses the voice buffer itself again (the smallest buffer of 1.1.38 made crackles on a weak line) */
       if (CV !== c || c.peers[id] !== p) return;
       var st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
       if (e.track.kind === 'video') {
@@ -1505,11 +1537,11 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     /* 1.1.38: voice and video end the same way: the photo, "Call ended" and how long it lasted */
     var dur = c.t0 ? Math.max(0, Math.floor((Date.now() - c.t0) / 1000)) : 0;
     v.classList.remove('video', 'has-remote', 'incoming', 'live', 'group');
-    v.classList.add('ended');
+    v.classList.add('ended'); v.__endT = Date.now();
     cvStatus(text); $('cvTime').textContent = dur ? Math.floor(dur / 60) + ':' + ('0' + dur % 60).slice(-2) : '';
     $('cvPeer').textContent = ''; $('cvBtns').innerHTML = ''; v.classList.add('closing');
     var my = ++CV_END;
-    setTimeout(function () { if (!CV && my === CV_END) { v.classList.add('hidden'); v.classList.remove('ended', 'closing'); } }, 2200);
+    setTimeout(function () { if (!CV && my === CV_END) { v.classList.add('hidden'); v.classList.remove('ended', 'closing'); } }, 1300);
   }
   /* ear mode: a black screen while you hold the phone to your ear (no cheek taps); tap twice to light it */
   (function () {
