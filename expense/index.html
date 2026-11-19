@@ -641,6 +641,27 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
   }
   function okOrigin(o) { return /^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(o) || o === 'https://script.google.com'; }
+  /* 1.1.46: the app opened a chat / an alert / an expense / a request: its notifications leave the phone's list
+     (the alerts of this website, and the phone app's own). '*' = all but chats and calls, 'chat:*' = all chats */
+  function ntfMatch(g, want) {
+    g = String(g || ''); if (!g) return false;
+    if (want === '*') return !/^(chat|call):/.test(g);
+    if (want === 'chat:*') return /^chat:/.test(g);
+    return g.split('@')[0] === String(want).split('@')[0];
+  }
+  function ntfClear(go) {
+    if (go !== '*' && go !== 'chat:*' && !validGo(go)) return;
+    natSend({ t: 'clear', go: go });
+    try {
+      if (!navigator.serviceWorker || !navigator.serviceWorker.getRegistration) return;
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (!reg || !reg.getNotifications) return;
+        return reg.getNotifications().then(function (list) {
+          list.forEach(function (n) { var g = (n.data && n.data.go) || String(n.tag || '').replace(/^tem-/, ''); if (ntfMatch(g, go)) n.close(); });
+        });
+      }).catch(function () {});
+    } catch (e) {}
+  }
   function localNotify(title, body, go) {
     if (!('Notification' in window) || Notification.permission !== 'granted' || document.visibilityState === 'visible') return;
     if (!navigator.serviceWorker) return;
@@ -699,6 +720,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (e.data.type === 'tem-vblob-prog' && VP && e.data.id === VP.id) vpProg(Number(e.data.p) || 0);
     if (e.data.type === 'tem-vblob-res' && VP && e.data.id === VP.id) vpBlobRes(e.data);
     if (e.data.type === 'tem-badge') setBadge(e.data.count);
+    if (e.data.type === 'tem-ntf-clear') ntfClear(String(e.data.go || ''));
     if (e.data.type === 'tem-notify') localNotify(String(e.data.title || '').slice(0, 80), String(e.data.body || '').slice(0, 200), e.data.go);
     if (e.data.type === 'tem-push-config' && e.data.config && typeof e.data.config === 'object') {
       var c = e.data.config, ok = ['apiKey', 'projectId', 'messagingSenderId', 'appId', 'vapidKey'].every(function (k) { return typeof c[k] === 'string' && c[k]; });
@@ -1109,7 +1131,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     on('cvCam', function () { CV.camOff = !CV.camOff; cvTracks('video', !CV.camOff); $('cvLocal').classList.toggle('off', CV.camOff); cvCtlAll('cam:' + (CV.camOff ? 0 : 1)); cvDraw(); });
     on('cvFlip', function () { cvFlip(); });
     on('cvVid', function () { cvToVideo(); });
-    on('cvSpk', function () { CV.spk = !CV.spk; natSend({ t: 'speaker', on: CV.spk }); cvDraw(); });
+    on('cvSpk', function () { cvRoute(!CV.spk); cvDraw(); });
     on('cvEar', function () { var dk = $('cvDark'); dk.textContent = ct('earHint'); dk.classList.remove('hidden'); });
     cvPeerUi();
   }
@@ -1183,8 +1205,9 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       var lv = $('cvLocal'); lv.srcObject = c.local; lv.classList.remove('off', 'back'); lv.play().catch(function () {});
       var tr = p.pc.getTransceivers().filter(function (t) { return t.receiver && t.receiver.track && t.receiver.track.kind === 'video' && !(t.sender && t.sender.track); })[0];
       if (tr) { tr.sender.replaceTrack(vt); try { tr.direction = 'sendrecv'; } catch (e) {} } else p.pc.addTrack(vt, c.local);
-      /* like a video call: the loudspeaker */
+      /* like a video call: the loudspeaker (Android: also the loudspeaker's microphone device) */
       c.spk = true; if (NAT.on) natSend({ t: 'call', st: 'live', video: true });
+      audSwitch(c, true);
       cvDraw(); cvRenego(p); cvIdleArm();
     }).catch(function () { cvHint(ct('nomedia')); }).then(function () { c.vidBusy = false; });
   }
@@ -1235,8 +1258,9 @@ var APP_URL = String(window.TRIP_APP_URL || '');
           var o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = hz; o.connect(g);
           var s = t + (kind === 'in' ? i * 0.16 : 0); o.start(s); o.stop(s + (kind === 'in' ? 0.15 : 1));
         });
-        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(kind === 'in' ? 0.22 : 0.1, t + 0.02);
-        g.gain.setValueAtTime(kind === 'in' ? 0.22 : 0.1, t + (kind === 'in' ? 0.62 : 0.95)); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'in' ? 0.7 : 1.05));
+        /* 1.1.46: the calling tone fades in and out softly (no click at its start / end) */
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(kind === 'in' ? 0.22 : 0.12, t + (kind === 'in' ? 0.02 : 0.06));
+        g.gain.setValueAtTime(kind === 'in' ? 0.22 : 0.12, t + (kind === 'in' ? 0.62 : 0.9)); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'in' ? 0.7 : 1.0));
       };
       CV.tone = setInterval(beep, kind === 'in' ? 1600 : 3000); beep();
     } catch (e) { /* silent ring */ }
@@ -1275,9 +1299,89 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     CV.wake0 = WAKE.want; WAKE.want = true; wakeApply();
     /* 1.1.39: our app sets the earpiece (voice) / loudspeaker (video) first, then the ringing tone and the microphone start */
     if (CV.role === 'out') natEarly(CV);
-    cvTone(CV.role);
-    /* the caller's camera / microphone start at once (asked while the other phone rings) */
-    if (CV.role === 'out') cvMedia().catch(function () {});
+    /* the caller's camera / microphone start at once (asked while the other phone rings).
+       1.1.46: the "calling…" tone starts once the microphone and the call's sound route are set up: started before,
+       it began on the loudspeaker and jumped to the earpiece when the microphone opened (a loud burst, crackles) */
+    if (CV.role === 'out') {
+      var co = CV;
+      cvMedia().then(function () {
+        setTimeout(function () { if (CV === co && co.st === 'ring' && !co.toneDone) cvTone('out'); }, NAT.on && NAT.platform === 'ios' ? 400 : 150);
+      }).catch(function () {});
+    } else cvTone(CV.role);
+  }
+  /* ===== 1.1.46: earpiece or loudspeaker inside our Android app =====
+     The web view (Chromium) routes the WHOLE call by the microphone "device" that is opened: the default microphone
+     means the loudspeaker (when no headset is connected), its "Headset earpiece" device the earpiece, its
+     "Speakerphone" device the loudspeaker. So a voice call opens the earpiece device and the 🔊 button opens the other
+     one; the web view then keeps that route itself (before, it put the loudspeaker back and the app moved it to the
+     earpiece again: loud bursts and crackles). Group voice calls too (the app puts them on the earpiece once they are
+     connected). The device ids are kept for the next call. iPhone: the app sets it. */
+  var AUD = { ear: '', spk: '' };
+  try { var aud0 = JSON.parse(localStorage.getItem('tem_aud') || '{}') || {}; AUD.ear = String(aud0.ear || '').slice(0, 200); AUD.spk = String(aud0.spk || '').slice(0, 200); } catch (e) {}
+  function audOn() { return NAT.on && NAT.platform === 'android' && !!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices); }
+  function audBase() { return { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: { ideal: 1 } }; }
+  function audIs(t, spk) { var l = String((t && t.label) || ''); return spk ? /speaker/i.test(l) : /earpiece/i.test(l); }
+  function audFind() {
+    return navigator.mediaDevices.enumerateDevices().then(function (list) {
+      var ins = list.filter(function (d) { return d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications'; });
+      var ear = ins.filter(function (d) { return /earpiece/i.test(d.label); })[0], spk = ins.filter(function (d) { return /speaker/i.test(d.label); })[0];
+      if (ear) AUD.ear = ear.deviceId; if (spk) AUD.spk = spk.deviceId;
+      try { localStorage.setItem('tem_aud', JSON.stringify(AUD)); } catch (e) {}
+      return AUD;
+    }).catch(function () { return AUD; });
+  }
+  /* the microphone of a new call: the earpiece device for a voice call (kept from the last call when known) */
+  function audCons(c) {
+    var a = audBase();
+    var id = c.spk ? AUD.spk : AUD.ear;
+    if (audOn() && !c.video && id) a.deviceId = { ideal: id };
+    return a;
+  }
+  /* the microphone opened is not the wanted one (first call, or the ids changed): open the right one now, before the
+     call connects, and stop the first */
+  function audFix(c, st) {
+    if (!audOn() || c.video) return Promise.resolve(st);
+    var t0 = st.getAudioTracks()[0], spk = !!c.spk;
+    if (!t0 || audIs(t0, spk)) { if (t0 && !(AUD.ear && AUD.spk)) audFind(); return Promise.resolve(st); }
+    return audFind().then(function () {
+      var id = spk ? AUD.spk : AUD.ear;
+      if (!id || CV !== c) return st;
+      var a = audBase(); a.deviceId = { exact: id };
+      return navigator.mediaDevices.getUserMedia({ audio: a }).then(function (s2) {
+        var t1 = s2.getAudioTracks()[0];
+        if (!t1 || CV !== c) { s2.getTracks().forEach(function (t) { t.stop(); }); return st; }
+        st.removeTrack(t0); t0.stop(); st.addTrack(t1);
+        return st;
+      }, function () { return st; });
+    });
+  }
+  /* 🔊 during the call: switch the microphone device (the web view moves the sound with it) */
+  function audSwitch(c, spk) {
+    if (!audOn() || !c.local) return;
+    var my = c.audN = (c.audN || 0) + 1;
+    (AUD.ear && AUD.spk ? Promise.resolve(AUD) : audFind()).then(function () {
+      var id = spk ? AUD.spk : AUD.ear, old = c.local && c.local.getAudioTracks()[0];
+      if (!id || CV !== c || c.audN !== my || (old && audIs(old, spk))) return;
+      var a = audBase(); a.deviceId = { exact: id };
+      return navigator.mediaDevices.getUserMedia({ audio: a }).then(function (s2) {
+        var t1 = s2.getAudioTracks()[0];
+        if (!t1 || CV !== c || c.audN !== my) { s2.getTracks().forEach(function (t) { t.stop(); }); return; }
+        t1.enabled = !c.muted; try { t1.contentHint = 'speech'; } catch (e) {}
+        return Promise.all(cvPeerList().map(function (p) {
+          var snd = p.pc.getSenders().filter(function (x) { return x.track && x.track.kind === 'audio'; })[0];
+          return snd ? snd.replaceTrack(t1) : null;
+        })).then(function () {
+          if (old) { c.local.removeTrack(old); old.stop(); }
+          c.local.addTrack(t1);
+        });
+      });
+    }).catch(function () { /* the app's own route stays */ });
+  }
+  /* the sound of the call: earpiece or loudspeaker (the app; on Android also the microphone device) */
+  function cvRoute(spk) {
+    var c = CV; if (!c) return;
+    c.spk = !!spk; natSend({ t: 'speaker', on: c.spk });
+    audSwitch(c, c.spk);
   }
   function cvMedia() {
     if (CV.mediaP) return CV.mediaP;
@@ -1285,9 +1389,12 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { c.mediaP = Promise.reject(new Error('media')); return c.mediaP; }
     c.facing = 'user';
     c.mediaP = navigator.mediaDevices.getUserMedia({
-      /* the phone's echo and noise cancelling, one channel (clearer speech, less hiss) */
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: { ideal: 1 } },
+      /* the phone's echo and noise cancelling, one channel (clearer speech, less hiss); Android: the earpiece device */
+      audio: audCons(c),
       video: c.video ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } } : false
+    }).then(function (st) {
+      if (CV !== c) { st.getTracks().forEach(function (t) { t.stop(); }); throw new Error('gone'); }
+      return audFix(c, st);
     }).then(function (st) {
       if (CV !== c) { st.getTracks().forEach(function (t) { t.stop(); }); throw new Error('gone'); }
       c.local = st;
@@ -1456,13 +1563,13 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   }
   function cvAnswer(sdp, peer) {
     var c = CV, p = c && c.peers[peer || 'p']; if (!p) return;
-    cvToneStop(); if (!c.group) cvStatus(ct('connecting'));
+    c.toneDone = true; cvToneStop(); if (!c.group) cvStatus(ct('connecting'));
     p.pc.setRemoteDescription({ type: 'answer', sdp: String(sdp || '') }).catch(function () { if (!c.group) { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); } else cvPeerGone(peer); });
   }
   function cvLive() {
     var c = CV; if (!c) return;
     if (c.st === 'live') { if (!c.group) cvStatus(c.timer ? '' : ct('connecting')); return; }
-    c.st = 'live'; cvToneStop();
+    c.st = 'live'; c.toneDone = true; cvToneStop();
     setTimeout(cvIdleArm, 0);
     if (!c.natOn) { c.spk = !!c.video; c.natOn = !c.group; }
     /* connected: apply the chosen sound route once more (the person's choice is kept) */
