@@ -1,136 +1,1876 @@
 <!DOCTYPE html>
-<html lang="km">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  
-  <!-- កំណត់ឱ្យពេញអេក្រង់ដូច App ពិតៗ (PWA / Fullscreen Mobile) -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Attendance App">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#eef2f5">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Trip Expense</title>
+<meta name="description" content="Manage and split group trip expenses">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://script.google.com">
+<link rel="dns-prefetch" href="https://script.googleusercontent.com">
+<meta name="theme-color" content="#1e3a8a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Trip Expense">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="favicon-32.png">
 
-  <title>ប្រព័ន្ធកត់ត្រាវត្តមានបុគ្គលិក / Hệ thống điểm danh nhân viên</title>
+<style>
+  /* Trip Expense Manager — PWA Launcher: opens the Apps Script web app full screen with a proper icon and name */
+  :root { --c1: #2563eb; --c2: #14b8a6; }
+  html, body { margin: 0; height: 100%; background: #f3f6fb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Kantumruy Pro", "Noto Sans Khmer", sans-serif; overscroll-behavior: none; }
+  /* 1.1.44: the app fills the whole screen, also under the iPhone's clock; it is told the clock strip's height (tem-inset)
+     and starts its top bar right under it (before: the frame started under the clock AND the app left the gap again) */
+  #app { position: fixed; left: 0; right: 0; top: 0; bottom: 0; width: 100%; height: 100%; border: 0; background: #f3f6fb; }
+  #insetProbe { position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+  .layer { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: linear-gradient(160deg, #1e3a8a, #0f766e); color: #fff; text-align: center; }
+  .hidden { display: none !important; }
+  .logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 16px 40px rgba(0, 0, 0, .3); }
+  .ring { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .3); border-top-color: #fff; animation: spin .9s linear infinite; margin: 22px auto 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { font-size: 20px; margin: 16px 0 4px; } p { margin: 6px 0; opacity: .92; font-size: 14px; line-height: 1.5; }
+  .box { max-width: 420px; width: 100%; }
+  .btn { display: inline-block; border: 0; border-radius: 12px; padding: 12px 18px; margin: 6px 4px 0; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; background: #fff; color: #1e3a8a; }
+  .btn.ghost { background: rgba(255, 255, 255, .15); color: #fff; }
+  input { width: 100%; box-sizing: border-box; border-radius: 12px; border: 0; padding: 13px 14px; font-size: 16px; margin-top: 12px; }
+  .err { color: #fecaca; min-height: 20px; font-size: 13px; margin-top: 6px; }
+  .small { font-size: 12px; opacity: .8; }
+  #slow { margin-top: 18px; }
+  .bar { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 6; display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 14px; color: #fff; background: rgba(15, 23, 42, .92); font-size: 13.5px; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
+  .bar span { flex: 1; } .bar button { border: 0; background: #fff; color: #1e3a8a; border-radius: 10px; padding: 8px 12px; font: inherit; font-weight: 600; cursor: pointer; }
+  .bar .x { background: transparent; color: #fff; font-size: 18px; padding: 4px 6px; }
+  .bio-ico { width: 104px; height: 104px; margin: 0 auto 6px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .14);
+    box-shadow: 0 0 0 10px rgba(255, 255, 255, .06), 0 16px 40px rgba(0, 0, 0, .25); animation: bioPulse 2.2s ease-in-out infinite; }
+  .bio-ico svg { width: 58px; height: 58px; }
+  @keyframes bioPulse { 50% { box-shadow: 0 0 0 18px rgba(255, 255, 255, .08), 0 16px 40px rgba(0, 0, 0, .25); } }
+  #bioGo { font-size: 17px; padding: 15px 30px; border-radius: 99px; min-width: 220px; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+  #twaSheet .box { text-align: left; background: rgba(255, 255, 255, .1); border-radius: 18px; padding: 18px; }
+  #twaSheet h1 { text-align: center; } #twaSheet p { font-size: 14px; } #twaSheet code { word-break: break-all; background: rgba(0, 0, 0, .25); padding: 1px 5px; border-radius: 6px; }
+  #twaSheet .acts { text-align: center; margin-top: 10px; }
+  @media (prefers-reduced-motion: reduce) { .bio-ico { animation: none; } }
+  /* 1.1.33: call screen, save sheet */
+  #callView { position: fixed; inset: 0; z-index: 9; background: radial-gradient(120% 80% at 50% 0%, #334155, #0b1220 70%); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    padding: calc(44px + env(safe-area-inset-top, 0px)) 20px calc(36px + env(safe-area-inset-bottom, 0px)); overflow: hidden; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  #cvRemote { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; display: none; }
+  #callView.has-remote #cvRemote { display: block; }
+  .cv-shade { position: absolute; inset: 0; background: linear-gradient(rgba(0, 0, 0, .5), transparent 28%, transparent 68%, rgba(0, 0, 0, .6)); display: none; pointer-events: none; }
+  #callView.has-remote .cv-shade { display: block; }
+  /* 1.1.38: live QR scanner (add friends) */
+  #qrView { position: fixed; inset: 0; z-index: 60; background: radial-gradient(120% 90% at 50% 40%, #1e293b 0%, #020617 70%); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: qrIn .22s ease-out; }
+  @keyframes qrIn { from { opacity: 0; transform: scale(1.03); } }
+  #qrView.hidden { display: none; }
+  #qrVid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity .35s ease; }
+  /* 1.1.39: "opening the camera" — a calm animated frame instead of a black screen */
+  #qrView.wait #qrVid { opacity: 0; }
+  .qr-wait { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-size: 14px; font-weight: 600; color: #e2e8f0; }
+  #qrView.wait .qr-wait { display: flex; }
+  .qr-wait span { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .22); border-top-color: #22d3ee; animation: qrSpin .8s linear infinite; }
+  @keyframes qrSpin { to { transform: rotate(360deg); } }
+  #qrView.wait #qrHint, #qrView.wait .qr-line { opacity: .35; }
+  .qr-frame { position: relative; width: min(68vw, 300px); aspect-ratio: 1; border-radius: 22px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .55); }
+  .qr-frame i { position: absolute; width: 38px; height: 38px; border: 4px solid #fff; }
+  .qr-frame i:nth-child(1) { left: -2px; top: -2px; border-right: 0; border-bottom: 0; border-radius: 20px 0 0 0; }
+  .qr-frame i:nth-child(2) { right: -2px; top: -2px; border-left: 0; border-bottom: 0; border-radius: 0 20px 0 0; }
+  .qr-frame i:nth-child(3) { left: -2px; bottom: -2px; border-right: 0; border-top: 0; border-radius: 0 0 0 20px; }
+  .qr-frame i:nth-child(4) { right: -2px; bottom: -2px; border-left: 0; border-top: 0; border-radius: 0 0 20px 0; }
+  .qr-line { position: absolute; left: 8%; right: 8%; height: 2px; background: linear-gradient(90deg, transparent, #22d3ee, transparent); top: 10%; animation: qrMove 2s ease-in-out infinite alternate; box-shadow: 0 0 12px #22d3ee; }
+  @keyframes qrMove { to { top: 88%; } }
+  #qrView.found .qr-frame i { border-color: #22c55e; } #qrView.found .qr-line { display: none; }
+  .qr-top { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; display: flex; align-items: center; justify-content: space-between; z-index: 2; font-weight: 700; }
+  .qr-top #qrT { flex: 1; text-align: center; } .qr-top .vp-b.off { visibility: hidden; }
+  #qrHint { position: relative; margin: 26px 16px 0; text-align: center; font-size: 15px; text-shadow: 0 1px 6px rgba(0, 0, 0, .7); }
+  #qrPick { position: absolute; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); border: 0; border-radius: 24px; padding: 12px 20px; background: rgba(255, 255, 255, .2); color: #fff; font: inherit; font-weight: 600; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .cv-top { position: relative; text-align: center; margin-top: 6vh; }
+  #callView.has-remote .cv-top { margin-top: 0; } #callView.has-remote .cv-av { display: none; }
+  .cv-av { width: 112px; height: 112px; border-radius: 50%; margin: 0 auto 16px; display: grid; place-items: center; font-size: 40px; font-weight: 800; overflow: hidden;
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, .06), 0 18px 40px rgba(0, 0, 0, .4); }
+  #callView:not(.live) .cv-av { animation: cvPulse 1.8s ease-in-out infinite; }
+  @keyframes cvPulse { 50% { box-shadow: 0 0 0 20px rgba(255, 255, 255, .08), 0 18px 40px rgba(0, 0, 0, .4); } }
+  .cv-av img { width: 100%; height: 100%; object-fit: cover; }
+  #cvName { font-size: 26px; margin: 0 0 6px; font-weight: 700; }
+  #cvSt { opacity: .88; font-size: 15px; margin: 0; min-height: 20px; }
+  .cv-time { font-variant-numeric: tabular-nums; font-size: 16px; opacity: .92; margin: 4px 0 0; }
+  #cvLocal { position: absolute; right: 14px; top: calc(14px + env(safe-area-inset-top, 0px)); width: 28vw; max-width: 140px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 14px;
+    background: #111; box-shadow: 0 8px 24px rgba(0, 0, 0, .4); transform: scaleX(-1); display: none; z-index: 1; }
+  #callView.video #cvLocal { display: block; } #callView.video.incoming #cvLocal { display: none; } #cvLocal.back { transform: none; } #cvLocal.off { opacity: .15; }
+  .cv-btns { position: relative; display: flex; gap: 22px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .cv-b { border: 0; background: none; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 8px; font: inherit; cursor: pointer; padding: 0; }
+  .cv-b span { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .2); transition: transform .12s; }
+  .cv-b { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .cv-b:active span { transform: scale(.9); }
+  .cv-b svg { width: 28px; height: 28px; } .cv-b small { font-size: 12.5px; opacity: .92; }
+  .cv-b.on span { background: #fff; color: #0b1220; }
+  .cv-b.red span { background: #ef4444; } .cv-b.green span { background: #22c55e; }
+  #callView.incoming .cv-btns { gap: 84px; }
+  #callView.incoming .cv-b.green span { animation: cvRing 1.3s ease-in-out infinite; }
+  @keyframes cvRing { 0%, 60%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(-14deg); } 20%, 40% { transform: rotate(14deg); } }
+  #callView.closing .cv-btns { visibility: hidden; }
+  .cv-top, .cv-btns { z-index: 2; }
+  /* a video call that is not connected yet: my camera fills the screen behind the name (like Messenger) */
+  #callView.video:not(.has-remote):not(.incoming):not(.group) #cvLocal { inset: 0; top: 0; right: 0; width: 100%; height: 100%; max-width: none; aspect-ratio: auto; border-radius: 0; box-shadow: none; z-index: 0; }
+  #callView.video:not(.has-remote):not(.incoming):not(.group) .cv-shade { display: block; z-index: 1; }
+  @media (prefers-reduced-motion: reduce) { #callView .cv-av, #callView .cv-b span { animation: none !important; } }
+  /* 1.1.34: livelier call screen, group grid, ear mode */
+  #callView.opening { animation: cvIn .32s cubic-bezier(.2, .9, .25, 1); }
+  @keyframes cvIn { from { opacity: 0; transform: translateY(24px) scale(.98); } to { opacity: 1; transform: none; } }
+  #callView.closing { animation: cvOut 1.3s ease-in forwards; }
+  /* 1.1.38: the end of a call: photo (grey), "Call ended", the time */
+  #callView.ended #cvRemote, #callView.ended #cvLocal, #callView.ended .cv-grid { display: none !important; }
+  #callView.ended .cv-av { display: grid !important; filter: grayscale(.85); opacity: .85; animation: cvEndPop .35s ease-out; }
+  #callView.ended #cvSt { font-size: 18px; font-weight: 700; letter-spacing: .2px; }
+  #callView.ended .cv-top { margin-top: 14vh; }
+  @keyframes cvEndPop { from { transform: scale(1.08); } to { transform: none; } }
+  @keyframes cvOut { 0%, 78% { opacity: 1; } 100% { opacity: 0; } }
+  .cv-b span { position: relative; transition: transform .16s cubic-bezier(.3, 1.6, .5, 1), background .2s, color .2s, box-shadow .2s; }
+  .cv-b:hover span { box-shadow: 0 0 0 6px rgba(255, 255, 255, .08); }
+  .cv-b:active span { transform: scale(.86); transition-duration: .06s; }
+  .cv-b span::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: rgba(255, 255, 255, .35); opacity: 0; transform: scale(.4); pointer-events: none; }
+  .cv-b:active span::after { animation: cvTap .35s ease-out; }
+  @keyframes cvTap { from { opacity: .6; transform: scale(.4); } to { opacity: 0; transform: scale(1.5); } }
+  .cv-b.red span { box-shadow: 0 6px 20px rgba(239, 68, 68, .45); } .cv-b.green span { box-shadow: 0 6px 22px rgba(34, 197, 94, .55); }
+  #callView.incoming .cv-b.green span::before, #callView.incoming .cv-b.green span::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(34, 197, 94, .7); animation: cvHalo 1.6s ease-out infinite; opacity: 1; transform: none; background: none; }
+  #callView.incoming .cv-b.green span::after { animation-delay: .8s; }
+  @keyframes cvHalo { from { transform: scale(1); opacity: .9; } to { transform: scale(1.8); opacity: 0; } }
+  #callView.incoming .cv-b.green svg { animation: cvRing 1.3s ease-in-out infinite; }
+  #callView.incoming .cv-b.green span { animation: none; }
+  #callView.live .cv-av { animation: none; box-shadow: 0 0 0 6px rgba(34, 197, 94, .25), 0 18px 40px rgba(0, 0, 0, .4); }
+  .cv-peer { margin: 6px 0 0; font-size: 13.5px; opacity: .85; min-height: 18px; }
+  #cvAudios { display: none; }
+  .cv-grid { display: none; }
+  /* ===== 1.1.40: a calm, colourful call screen ===== */
+  #callView { background: #0b1220; }
+  .cv-bg { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+  /* 1.1.44: soft colour circles drawn as gradients (a blur filter on big moving layers made taps and the call stutter) */
+  .cv-bg b { position: absolute; width: 75vmax; height: 75vmax; border-radius: 50%; opacity: .55; background: radial-gradient(closest-side, var(--cv-c, #2563eb), transparent); animation: cvDrift 16s ease-in-out infinite alternate; will-change: transform; }
+  .cv-bg b:nth-of-type(1) { left: -30vmax; top: -28vmax; }
+  .cv-bg b:nth-of-type(2) { right: -38vmax; top: 18vh; background: radial-gradient(closest-side, #7c3aed, transparent); opacity: .42; animation-duration: 21s; animation-delay: -6s; }
+  .cv-bg b:nth-of-type(3) { left: -18vmax; bottom: -44vmax; background: radial-gradient(closest-side, #0891b2, transparent); opacity: .38; animation-duration: 25s; animation-delay: -11s; }
+  #callView.live .cv-bg b, #callView.video .cv-bg b { animation-play-state: paused; }
+  .cv-bg i { position: absolute; inset: -12%; background-size: cover; background-position: center; filter: blur(46px) saturate(1.25) brightness(.6); opacity: 0; transition: opacity .5s; }
+  .cv-bg.photo i { opacity: 1; } .cv-bg.photo b { opacity: .22; }
+  .cv-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(2, 6, 23, .15), rgba(2, 6, 23, .35) 55%, rgba(2, 6, 23, .8)); }
+  @keyframes cvDrift { to { transform: translate(9vmax, 7vmax) scale(1.18); } }
+  #callView.has-remote .cv-bg, #callView.ended .cv-bg b { animation-play-state: paused; }
+  .cv-avw { position: relative; width: 112px; height: 112px; margin: 0 auto 18px; }
+  .cv-avw .cv-av { margin: 0; position: relative; z-index: 1; }
+  .cv-avw::before, .cv-avw::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .45); opacity: 0; pointer-events: none; }
+  #callView:not(.live):not(.ended) .cv-avw::before, #callView:not(.live):not(.ended) .cv-avw::after { animation: cvRipple 2.6s cubic-bezier(.2, .6, .35, 1) infinite; }
+  #callView:not(.live):not(.ended) .cv-avw::after { animation-delay: 1.3s; }
+  @keyframes cvRipple { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(2.1); opacity: 0; } }
+  #callView:not(.live) .cv-av { animation: cvBreath 2.6s ease-in-out infinite; }
+  #callView.live:not(.has-remote) .cv-av { animation: cvBreath 4.5s ease-in-out infinite; }
+  @keyframes cvBreath { 50% { transform: scale(1.045); } }
+  #callView.has-remote .cv-avw, #callView.group .cv-avw::before, #callView.group .cv-avw::after { display: none; }
+  #callView.group .cv-avw { width: 72px; height: 72px; margin-bottom: 8px; }
+  #callView.ended .cv-avw { display: block; }
+  #cvName { text-shadow: 0 2px 12px rgba(0, 0, 0, .35); letter-spacing: .2px; }
+  #cvSt { display: inline-block; padding: 5px 14px; border-radius: 999px; background: rgba(255, 255, 255, .14); font-weight: 600; font-size: 14px; }
+  #cvSt:empty { display: none; }
+  #callView.live .cv-time { font-size: 17px; font-weight: 600; }
+  /* coming in: the photo pops, the name and the buttons rise one after the other */
+  #callView.opening .cv-avw { animation: cvPop .55s cubic-bezier(.2, 1.5, .4, 1) both; }
+  #callView.opening #cvName { animation: cvRise .45s .08s both; }
+  #callView.opening #cvSt { animation: cvRise .45s .15s both; }
+  #callView.opening .cv-b { animation: cvRise .45s both; }
+  #callView.opening .cv-b:nth-child(2) { animation-delay: .05s; } #callView.opening .cv-b:nth-child(3) { animation-delay: .1s; } #callView.opening .cv-b:nth-child(4) { animation-delay: .15s; } #callView.opening .cv-b:nth-child(5) { animation-delay: .2s; }
+  @keyframes cvPop { from { transform: scale(.6); opacity: 0; } }
+  @keyframes cvRise { from { transform: translateY(18px); opacity: 0; } }
+  /* the buttons sit on a frosted bar while talking */
+  #callView.live:not(.ended) .cv-btns { background: rgba(15, 23, 42, .55); border-radius: 30px; padding: 14px 16px 10px; gap: 14px; border: 1px solid rgba(255, 255, 255, .08); }
+  #callView.incoming .cv-b span { width: 74px; height: 74px; } #callView.incoming .cv-b svg { width: 32px; height: 32px; }
+  /* 1.1.40: while talking, the buttons go away after a few seconds; a tap brings them back */
+  .cv-top, .cv-btns, #cvLocal { transition: opacity .35s ease, transform .35s ease; }
+  #callView.cv-idle .cv-btns { opacity: 0; transform: translateY(24px); pointer-events: none; }
+  #callView.cv-idle.has-remote .cv-top { opacity: 0; transform: translateY(-16px); }
+  .cv-hint { position: absolute; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 3; background: rgba(15, 23, 42, .7); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    padding: 8px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 600; white-space: nowrap; animation: cvRise .3s both; }
+  @media (prefers-reduced-motion: reduce) { .cv-bg b, .cv-avw::before, .cv-avw::after, #callView .cv-av { animation: none !important; } }
+  /* narrow screens (Galaxy Fold cover screen): the buttons stay on one line */
+  @media (max-width: 360px) {
+    .cv-b span { width: 54px; height: 54px; } .cv-b svg { width: 24px; height: 24px; } .cv-b small { font-size: 11.5px; }
+    #callView.live:not(.ended) .cv-btns { gap: 8px; padding: 10px 10px 8px; }
+    #callView.incoming .cv-btns { gap: 56px; }
+    .cv-avw { width: 96px; height: 96px; } .cv-av { width: 96px; height: 96px; font-size: 34px; }
+  }
+  #callView.group .cv-grid { position: relative; z-index: 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 520px; flex: 1; margin: 14px 0; align-content: center; }
+  #callView.group .cv-grid[data-n="1"] { grid-template-columns: 1fr; }
+  #callView.group #cvLocal { width: 22vw; max-width: 110px; }
+  #callView.group .cv-av { width: 72px; height: 72px; font-size: 26px; margin-bottom: 8px; }
+  #callView.group #cvName { font-size: 20px; }
+  .cv-tile { position: relative; aspect-ratio: 3 / 4; border-radius: 16px; overflow: hidden; background: rgba(255, 255, 255, .1); display: grid; place-items: center; animation: cvIn .3s ease-out; }
+  .cv-tile video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+  .cv-tile.has-video video { display: block; } .cv-tile.has-video .cv-ini { display: none; }
+  .cv-ini { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 24px; font-weight: 800; background: rgba(255, 255, 255, .18); }
+  .cv-tile b { position: absolute; left: 8px; bottom: 8px; font-size: 13px; background: rgba(0, 0, 0, .45); padding: 2px 8px; border-radius: 99px; max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cv-tile i { position: absolute; right: 8px; top: 8px; font-style: normal; font-size: 13px; }
+  #cvDark { position: absolute; inset: 0; z-index: 5; background: #000; color: rgba(255, 255, 255, .35); display: flex; align-items: flex-end; justify-content: center; padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px)); font-size: 13px; }
+  #cvDark.hidden { display: none; }
+  html.native #installBar, html.native #iosBar, html.native #ntfBar { display: none !important; }
+  .cv-tile { transition: box-shadow .15s; }
+  .cv-tile.speaking { box-shadow: inset 0 0 0 3px #22c55e, 0 0 18px rgba(34, 197, 94, .45); }
+  /* 1.1.35: a chat video, full screen, playing while it downloads */
+  #vpView { position: fixed; inset: 0; z-index: 6; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; touch-action: pan-x; }
+  #vpView.hidden { display: none; }
+  #vpView.opening { animation: vpIn .22s ease-out; }
+  #vpView.closing { animation: vpOut .2s ease-in forwards; }
+  @keyframes vpIn { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+  @keyframes vpOut { to { opacity: 0; transform: translateY(18%) scale(.9); } }
+  #vpVid { width: 100%; height: 100%; max-height: 100vh; object-fit: contain; background: #000; }
+  .vp-top { position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; padding: calc(8px + env(safe-area-inset-top, 0px)) 10px 18px; background: linear-gradient(rgba(0, 0, 0, .65), transparent); transition: opacity .2s; }
+  #vpView.bare .vp-top, #vpView.bare .vp-cap { opacity: 0; pointer-events: none; }
+  .vp-b { width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .14); color: #fff; font-size: 20px; display: grid; place-items: center; cursor: pointer; flex: 0 0 auto; -webkit-tap-highlight-color: transparent; }
+  .vp-b:active { transform: scale(.9); background: rgba(255, 255, 255, .28); }
+  .vp-b svg { width: 22px; height: 22px; }
+  .vp-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .vp-who b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .vp-who small { font-size: 12px; opacity: .75; }
+  .vp-cap { position: absolute; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); z-index: 2; text-align: center; font-size: 14px; text-shadow: 0 1px 3px #000; pointer-events: none; transition: opacity .2s; }
+  .vp-cap.hidden { display: none; }
+  #vpLoad { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; font-size: 13px; text-shadow: 0 1px 3px #000; }
+  #vpLoad.hidden { display: none; }
+  #vpLoad i { width: 42px; height: 42px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .25); border-top-color: #fff; animation: vpSpin .8s linear infinite; }
+  @keyframes vpSpin { to { transform: rotate(360deg); } }
 
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    html, body {
-      width: 100%;
-      height: 100%;
-      height: 100dvh;
-      overflow: hidden;
-      background-color: #eef2f5;
-      font-family: 'Khmer OS Battambang', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      position: fixed;
-      inset: 0;
-    }
-
-    /* ប្រអប់រុំ Iframe ពេញអេក្រង់ទូរស័ព្ទ និងការពារកុំឱ្យដាច់គែម (Safe Area) */
-    .app-viewport {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #eef2f5;
-    }
-
-    /* 
-      🎯 លាក់របារពណ៌ប្រផេះខាងលើរបស់ Google Apps Script ("This application was created by...")
-      ដោយរុញ Iframe ឡើងលើ -40px និងបន្ថែមកម្ពស់ +40px មកវិញ ដើម្បីកុំឱ្យដាច់ផ្នែកខាងក្រោមនៃអេក្រង់
-    */
-    .gas-iframe {
-      position: absolute;
-      top: -7px;
-      left: 0;
-      width: 100%;
-      height: calc(100% + 7px);
-      border: none;
-      display: block;
-      background: #eef2f5;
-    }
-
-    /* ផ្ទាំង Loading មុនពេល Google Apps Script បើកចេញមក */
-    .loading-screen {
-      position: absolute;
-      inset: 0;
-      background: #eef2f5;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 10;
-      transition: opacity 0.35s ease, visibility 0.35s ease;
-    }
-
-    .loading-screen.hidden {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-
-    .spinner {
-      width: 42px;
-      height: 42px;
-      border: 4px solid #cbd5e1;
-      border-top-color: #1a73e8;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 12px;
-    }
-
-    .loading-text {
-      font-size: 14px;
-      font-weight: bold;
-      color: #1e3a8a;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  </style>
+</style>
 </head>
 <body>
+<iframe id="app" title="Trip Expense Manager" allow="geolocation *; clipboard-write *; camera *; microphone *; fullscreen *; autoplay *" referrerpolicy="no-referrer-when-downgrade"></iframe>
 
-  <!-- ផ្ទាំង Loading ពេលកំពុងភ្ជាប់ទៅប្រព័ន្ធ -->
-  <div class="loading-screen" id="loader">
-    <div class="spinner"></div>
-    <div class="loading-text">កំពុងបើកប្រព័ន្ធវត្តមាន...</div>
+<div id="splash" class="layer"><div class="box">
+  <img class="logo" src="icon-192.png" alt="">
+  <h1>Trip Expense Manager</h1>
+  <div class="ring"></div><p id="opening">Opening the app…</p>
+  <p id="patience" class="small hidden">The first start of the day can take a little longer — please wait</p>
+  <div id="slow" class="hidden"><p>The app could not be opened.</p><p class="small" id="slowWhy">Please check your internet connection.</p>
+    <button class="btn" type="button" id="retry">⟳ Try again</button>
+    <p class="small" style="margin-top:12px"><a href="#" id="direct" target="_blank" rel="noopener" style="color:#fff">Open in browser</a> · <a href="#" id="change" style="color:#fff">Change link</a></p>
   </div>
+</div></div>
 
-  <!-- ប្រអប់បង្ហាញ Google Apps Script ពេញអេក្រង់ និងលាក់របារ Google ខាងលើ -->
-  <div class="app-viewport">
-    <!-- 📌 ជំនួស WEB_APP_URL របស់អ្នកនៅក្នុង src ខាងក្រោម ប្រសិនបើអ្នកមានប្ដូរ Link ថ្មី -->
-    <iframe
-      id="appFrame"
-      class="gas-iframe"
-      src="https://script.google.com/macros/s/AKfycbw0hwKSZnL1aSOgLSmCiWBqQMNWPSr0-ZqqoqNmHIHqW6fuDIpuDU05wzUUTLoaunzB/exec"
-      allow="camera *; microphone *; geolocation *; clipboard-write"
-      allowfullscreen="true"
-      onload="hideLoader()">
-    </iframe>
-  </div>
+<div id="setup" class="layer hidden"><form class="box" id="setupForm" novalidate>
+  <img class="logo" src="icon-192.png" alt="">
+  <h1>Connect the app</h1><p>Paste the Web App link (it starts with https://script.google.com/macros/s/ ... /exec)</p>
+  <input id="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec">
+  <div class="err" id="err"></div>
+  <button class="btn" type="submit">Save and open</button>
+</form></div>
 
-  <script>
-    function hideLoader() {
-      var loader = document.getElementById('loader');
-      if (loader) {
-        setTimeout(function() {
-          loader.classList.add('hidden');
-        }, 300);
-      }
+<div id="offline" class="bar hidden"><span>📶 No internet — the app will open again when you are back online</span></div>
+<div id="installBar" class="bar hidden"><span>📲 Trip Expense</span><button type="button" id="installBtn">Install app</button><button type="button" class="x" data-x="installBar" title="Close">✕</button></div>
+<div id="ntfBar" class="bar hidden"><span>🔔 Turn on alerts and the number badge on the app icon</span><button type="button" id="ntfBtn">Turn on</button><button type="button" class="x" data-x="ntfBar" title="Close">✕</button></div>
+<div id="bioSheet" class="layer hidden" style="z-index:7"><div class="box">
+  <div class="bio-ico" id="bioIco"></div>
+  <h1 id="bioT">Unlock</h1><p id="bioP"></p>
+  <button class="btn" type="button" id="bioGo">Continue</button><br>
+  <button class="btn ghost" type="button" id="bioNo">Cancel</button>
+</div></div>
+<div id="twaSheet" class="layer hidden" style="z-index:8"><div class="box">
+  <h1>📲 Address bar in the app</h1>
+  <div id="twaBody"></div>
+  <div class="acts"><button class="btn" type="button" id="twaOk">OK</button> <button class="btn ghost" type="button" id="twaNever">Don't show again</button></div>
+</div></div>
+<div id="saveSheet" class="layer hidden" style="z-index:8"><div class="box">
+  <div class="bio-ico"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M5 20h14v-2H5v2zm7-2-6-6 1.4-1.4 3.6 3.6V3h2v11.2l3.6-3.6L18 12l-6 6z"/></svg></div>
+  <h1 id="saveT">Save</h1><p>Tap Save, then choose “Save Image” or “Save Video” — it goes to Photos.</p>
+  <button class="btn" type="button" id="saveGo">Save</button><br>
+  <button class="btn ghost" type="button" id="saveNo">Cancel</button>
+</div></div>
+<div id="qrView" class="hidden" role="dialog" aria-modal="true" aria-label="Scan QR">
+  <video id="qrVid" playsinline autoplay muted></video>
+  <div class="qr-frame"><i></i><i></i><i></i><i></i><b class="qr-line"></b><div class="qr-wait"><span></span><em id="qrWaitT">Opening the camera…</em></div></div>
+  <div class="qr-top"><button type="button" class="vp-b" id="qrX" aria-label="Close">✕</button><span id="qrT">Scan QR</span><button type="button" class="vp-b off" id="qrTorch" aria-label="Light">🔦</button></div>
+  <p id="qrHint">Point the camera at the QR code</p>
+  <button type="button" id="qrPick">🖼️ Pick a photo</button>
+  <canvas id="qrCv" class="hidden"></canvas>
+</div>
+<div id="callView" class="hidden" role="dialog" aria-modal="true" aria-label="Call">
+  <div class="cv-bg" id="cvBg"><i id="cvBgImg"></i><b></b><b></b><b></b></div>
+  <video id="cvRemote" playsinline autoplay muted></video><audio id="cvAudio" autoplay playsinline></audio><div id="cvAudios"></div><div class="cv-shade"></div>
+  <div class="cv-top"><div class="cv-avw"><div class="cv-av" id="cvAv"></div></div><h2 id="cvName"></h2><p id="cvSt"></p><p id="cvTime" class="cv-time"></p><p class="cv-peer" id="cvPeer"></p></div>
+  <div class="cv-grid" id="cvGrid"></div>
+  <video id="cvLocal" playsinline autoplay muted></video>
+  <div class="cv-btns" id="cvBtns"></div>
+  <div id="cvDark" class="hidden"></div>
+</div>
+<div id="vpView" class="hidden" role="dialog" aria-modal="true" aria-label="Video">
+  <video id="vpVid" playsinline controls autoplay preload="auto"></video>
+  <div id="vpLoad" class="hidden"><i></i><span id="vpLoadT"></span></div>
+  <div class="vp-top"><button type="button" class="vp-b" id="vpX" aria-label="Close">✕</button><span class="vp-who"><b id="vpT"></b><small id="vpS"></small></span>
+    <button type="button" class="vp-b" id="vpSave" aria-label="Save"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 20h14v-2H5v2zm7-2-6-6 1.4-1.4 3.6 3.6V3h2v11.2l3.6-3.6L18 12l-6 6z"/></svg></button>
+    <button type="button" class="vp-b" id="vpFs" aria-label="Full screen"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button></div>
+  <div class="vp-cap hidden" id="vpCap"></div>
+</div>
+<div id="iosBar" class="bar hidden"><span>📲 To install: tap Share ⬆️ → Add to Home Screen ➕</span><button type="button" class="x" data-x="iosBar" title="Close">✕</button></div>
+
+<script src="config.js"></script>
+<script>
+/* The Web App link is set in config.js (edit that small file, not this one). */
+var APP_URL = String(window.TRIP_APP_URL || '');
+
+(function () {
+  var KEY = 'tem_launcher_url';
+  var $ = function (id) { return document.getElementById(id); };
+  var frame = $('app'), splash = $('splash'), setup = $('setup');
+  var slowTimer = null;
+  function valid(u) { return /^https:\/\/script\.google\.com\/(a\/macros\/[^\/\s]+|macros)\/s\/[A-Za-z0-9_-]+\/exec\/?$/.test(String(u || '').trim()); }
+  function saved() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+  function appUrl() { return valid(APP_URL) ? APP_URL.trim() : (valid(saved()) ? saved() : ''); }
+  function standalone() { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+  function open() {
+    var u = appUrl();
+    if (!u) { splash.classList.add('hidden'); setup.classList.remove('hidden'); setTimeout(function () { $('url').focus(); }, 100); return; }
+    setup.classList.add('hidden'); splash.classList.remove('hidden'); $('slow').classList.add('hidden');
+    $('patience').classList.add('hidden'); $('opening').classList.remove('hidden');
+    $('direct').href = u;
+    var su = /[?&]signup=1\b/.test(location.search) ? '&signup=1' : '';
+    frame.src = u + (u.indexOf('?') < 0 ? '?' : '&') + 'app=pwa' + su;
+    clearTimeout(slowTimer);
+    /* keep waiting quietly: a slow first start is normal for Google Apps Script */
+    slowTimer = setTimeout(function () {
+      $('patience').classList.remove('hidden');
+      slowTimer = setTimeout(function () {
+        $('opening').classList.add('hidden'); $('patience').classList.add('hidden');
+        $('slowWhy').textContent = navigator.onLine === false ? 'No internet connection.' :
+          'If this keeps happening, the admin should check Settings → Phone app → "Allow embedding in the PWA Launcher" and deploy a new version.';
+        $('slow').classList.remove('hidden');
+      }, 75000);
+    }, 12000);
+  }
+  var hideT = null;
+  function hideSplash() { clearTimeout(hideT); splash.classList.add('hidden'); }
+  frame.addEventListener('load', function () {
+    if (!frame.src || frame.src === 'about:blank') return;
+    clearTimeout(slowTimer);
+    /* the app says "ready" when it has drawn itself; older versions do not, so give up waiting after a few seconds */
+    clearTimeout(hideT); hideT = setTimeout(hideSplash, 3500);
+  });
+  $('retry').onclick = function () { frame.src = 'about:blank'; setTimeout(open, 50); };
+  $('change').onclick = function (e) { e.preventDefault(); clearTimeout(slowTimer); splash.classList.add('hidden'); setup.classList.remove('hidden'); $('url').value = appUrl(); };
+  $('setupForm').onsubmit = function (e) {
+    e.preventDefault();
+    var u = $('url').value.trim();
+    if (!valid(u)) { $('err').textContent = 'Invalid link — it must start with https://script.google.com/ and end with /exec'; return; }
+    try { localStorage.setItem(KEY, u); } catch (er) {}
+    APP_URL = u; $('err').textContent = ''; open();
+  };
+  /* offline / online */
+  function net() { $('offline').classList.toggle('hidden', navigator.onLine !== false); }
+  window.addEventListener('online', function () { net(); if (frame.src && !splash.classList.contains('hidden')) open(); });
+  window.addEventListener('offline', net);
+  net();
+  /* install prompts */
+  var deferred = null;
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; if (!standalone()) $('installBar').classList.remove('hidden'); });
+  $('installBtn').onclick = function () { if (!deferred) return; deferred.prompt(); deferred = null; $('installBar').classList.add('hidden'); };
+  window.addEventListener('appinstalled', function () { $('installBar').classList.add('hidden'); });
+  var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var dismissed = false; try { dismissed = !!localStorage.getItem('tem_launcher_iosx'); } catch (e) {}
+  if (ios && !standalone() && !dismissed) setTimeout(function () { $('iosBar').classList.remove('hidden'); }, 2500);
+  Array.prototype.forEach.call(document.querySelectorAll('[data-x]'), function (b) {
+    b.onclick = function () {
+      var id = b.getAttribute('data-x');
+      $(id).classList.add('hidden');
+      try { if (id === 'iosBar') localStorage.setItem('tem_launcher_iosx', '1'); if (id === 'ntfBar') localStorage.setItem('tem_launcher_ntfx', '1'); } catch (e) {}
+    };
+  });
+  /* ---- badge on the app icon + alerts, sent by the app inside the frame ---- */
+  var BASE_TITLE = document.title;
+  function setBadge(n) {
+    n = Math.max(0, Math.min(999, Math.floor(Number(n) || 0)));
+    document.title = (n ? '(' + n + ') ' : '') + BASE_TITLE;
+    try { if (navigator.setAppBadge) { if (n) navigator.setAppBadge(n); else navigator.clearAppBadge(); } } catch (e) {}
+    try { if (window.caches) caches.open('tem-badge').then(function (c) { return c.put('n', new Response(String(n))); }).catch(function () {}); } catch (e) {}
+  }
+  /* ---- real push notifications (Firebase Cloud Messaging). The app sends its public Firebase web config. ---- */
+  var PUSH = { cfg: null, src: null, origin: '*', busy: false };
+  var FB_BASE = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  function loadScript(u) { return new Promise(function (ok, bad) { var sc = document.createElement('script'); sc.src = u; sc.onload = ok; sc.onerror = bad; document.head.appendChild(sc); }); }
+  function toApp(msg) { try { if (PUSH.src) PUSH.src.postMessage(msg, PUSH.origin); } catch (e) {} }
+  function pushSupported() { return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window; }
+  function pushToken() {
+    if (!PUSH.cfg || PUSH.busy || !pushSupported() || Notification.permission !== 'granted') return;
+    PUSH.busy = true;
+    (window.firebase && firebase.messaging ? Promise.resolve() : loadScript(FB_BASE + 'firebase-app-compat.js').then(function () { return loadScript(FB_BASE + 'firebase-messaging-compat.js'); }))
+      .then(function () { return navigator.serviceWorker.ready; })
+      .then(function (reg) {
+        var c = PUSH.cfg;
+        if (!firebase.apps.length) firebase.initializeApp({ apiKey: c.apiKey, authDomain: c.authDomain, projectId: c.projectId, storageBucket: c.storageBucket, messagingSenderId: c.messagingSenderId, appId: c.appId });
+        return firebase.messaging().getToken({ vapidKey: c.vapidKey, serviceWorkerRegistration: reg });
+      })
+      .then(function (tok) { PUSH.busy = false; if (tok) toApp({ type: 'tem-push-token', token: tok }); })
+      .catch(function (e) { PUSH.busy = false; toApp({ type: 'tem-push-state', state: 'error', error: String(e && e.message || e) }); });
+  }
+  /* ---- microphone: Google's page cannot use it, so the launcher records and sends the sound to the app ---- */
+  var GEO = { watch: null };
+  var WAKE = { want: false, s: null };
+  function wakeApply() {
+    try {
+      if (WAKE.want && !WAKE.s && navigator.wakeLock && document.visibilityState === 'visible') navigator.wakeLock.request('screen').then(function (s) { WAKE.s = s; s.addEventListener('release', function () { WAKE.s = null; }); }).catch(function () {});
+      if (!WAKE.want && WAKE.s) { WAKE.s.release().catch(function () {}); WAKE.s = null; }
+    } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    wakeApply();
+    /* 1.1.42: back on the screen during a call (answered from the lock screen, iPhone): start the other voice again */
+    try { if (CV) { var au = $('cvAudio'); if (au && au.srcObject && au.paused) au.play().catch(function () {}); if (CV.ac && CV.ac.state === 'suspended') CV.ac.resume(); } } catch (e) {}
+  });
+  var MIC = { src: null, origin: '*', mr: null, stream: null, sr: null, chunks: [], cancel: false, timer: null, levels: false, meter: null, ac: null };
+  function micReply(m) { try { if (MIC.src) MIC.src.postMessage(m, MIC.origin); } catch (e) {} }
+  function micStart(lang, mode, maxSec) {
+    micStop(true); MIC.cancel = false; MIC.maxSec = Math.max(5, Math.min(180, Number(maxSec) || 30));
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (mode === 'sr' && SR) {
+      var rec, text = '', failed = false;
+      try { rec = new SR(); } catch (e) { return micReply({ type: 'tem-mic-error', error: 'unsupported' }); }
+      rec.lang = lang === 'en' ? 'en-US' : 'km-KH'; rec.interimResults = true; rec.continuous = false;
+      rec.onresult = function (ev) {
+        var interim = '';
+        for (var i = ev.resultIndex; i < ev.results.length; i++) { if (ev.results[i].isFinal) text += ev.results[i][0].transcript; else interim += ev.results[i][0].transcript; }
+        micReply({ type: 'tem-mic-partial', text: (text + ' ' + interim).trim() });
+      };
+      rec.onerror = function (ev) {
+        failed = true; if (MIC.cancel) return;
+        var er = ev.error || 'error';
+        /* recognition cannot do this language here: record instead (the app turns it into text) */
+        if (MIC.canRec && /language-not-supported|network|service-not-allowed/.test(er)) { MIC.sr = null; micStart(lang, 'rec'); return; }
+        micReply({ type: 'tem-mic-error', error: er });
+      };
+      rec.onend = function () { MIC.sr = null; if (!failed && !MIC.cancel) micReply({ type: 'tem-mic-text', text: text }); };
+      MIC.sr = rec;
+      try { rec.start(); } catch (e) { micReply({ type: 'tem-mic-error', error: 'unsupported' }); }
+      return;
     }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return micReply({ type: 'tem-mic-error', error: 'unsupported' });
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      if (MIC.cancel) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+      var types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'], type = '';
+      for (var i = 0; i < types.length; i++) { try { if (MediaRecorder.isTypeSupported(types[i])) { type = types[i]; break; } } catch (e) {} }
+      var mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+      MIC.stream = stream; MIC.mr = mr; MIC.chunks = [];
+      if (MIC.levels) micMeter(stream);
+      mr.ondataavailable = function (ev) { if (ev.data && ev.data.size) MIC.chunks.push(ev.data); };
+      mr.onstop = function () {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        MIC.mr = null; MIC.stream = null; clearTimeout(MIC.timer); micMeterStop();
+        if (MIC.cancel) return;
+        var blob = new Blob(MIC.chunks, { type: (mr.mimeType || type || 'audio/webm').split(';')[0] });
+        var fr = new FileReader();
+        fr.onload = function () { micReply({ type: 'tem-mic-audio', data: String(fr.result).split(',')[1] || '', mime: blob.type }); };
+        fr.readAsDataURL(blob);
+      };
+      mr.start();
+      MIC.timer = setTimeout(function () { micStop(false); }, (MIC.maxSec + 1) * 1000);
+    }).catch(function (err) { micReply({ type: 'tem-mic-error', error: (err && (err.name || err.message)) || 'error' }); });
+  }
+  function micStop(cancel) {
+    MIC.cancel = !!cancel; clearTimeout(MIC.timer); micMeterStop();
+    try { if (MIC.sr) MIC.sr.stop(); } catch (e) {}
+    try { if (MIC.mr && MIC.mr.state !== 'inactive') MIC.mr.stop(); } catch (e) {}
+    if (cancel && MIC.stream) { MIC.stream.getTracks().forEach(function (t) { t.stop(); }); MIC.stream = null; }
+  }
+  function askPush() {
+    if (!pushSupported()) { toApp({ type: 'tem-push-state', state: 'unsupported' }); return; }
+    if (Notification.permission === 'granted') { pushToken(); return; }
+    if (Notification.permission === 'denied') { toApp({ type: 'tem-push-state', state: 'denied' }); return; }
+    var shown = false;
+    try {
+      Notification.requestPermission().then(function (p) {
+        if (p === 'granted') { $('ntfBar').classList.add('hidden'); pushToken(); }
+        else if (p === 'denied') toApp({ type: 'tem-push-state', state: 'denied' });
+        else if (!shown) { shown = true; $('ntfBar').classList.remove('hidden'); }
+      }).catch(function () { $('ntfBar').classList.remove('hidden'); });
+    } catch (e) { $('ntfBar').classList.remove('hidden'); }
+    /* iPhone needs a tap on the launcher itself: show the bar if no answer came */
+    setTimeout(function () { if (Notification.permission === 'default' && !shown) { shown = true; $('ntfBar').classList.remove('hidden'); } }, 1200);
+  }
+  /* "open this place" from a tapped notification: ?go=… on start, or a message from the service worker */
+  function validGo(g) { return /^(chat|exp|req|page|call):[A-Za-z0-9@_-]{1,90}$/.test(String(g || '')) ? String(g) : ''; }
+  var APPWIN = null, APPORIGIN = '', PENDING_GO = '', PENDING_MSG = '', PRE0 = null;
+  try {
+    var q = new URLSearchParams(location.search), g0 = validGo(q.get('go'));
+    if (g0) { PENDING_GO = g0; PENDING_MSG = String(q.get('gm') || '').slice(0, 2500); PRE0 = { go: g0, name: String(q.get('cn') || '').slice(0, 60), video: q.get('cv') === '1' };
+      q.delete('go'); q.delete('gm'); q.delete('cn'); q.delete('cv'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); }
+  } catch (e) {}
+  function sendGo(go, msg) {
+    go = validGo(go); if (!go) return;
+    msg = typeof msg === 'string' ? msg.slice(0, 2500) : '';
+    if (APPWIN) { try { APPWIN.postMessage({ type: 'tem-go', go: go, msg: msg }, APPORIGIN); PENDING_GO = ''; PENDING_MSG = ''; return; } catch (e) {} }
+    PENDING_GO = go; PENDING_MSG = msg;
+  }
+  /* a target is passed on only once, whichever way it arrives first (message from the service worker, or the shared cache) */
+  var GO_SEEN = {};
+  function goOnce(go, msg, key) {
+    key = key || go;
+    if (GO_SEEN[key] && Date.now() - GO_SEEN[key] < 15000) return;
+    GO_SEEN[key] = Date.now();
+    sendGo(go, msg);
+  }
+  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'tem-go') goOnce(e.data.go, e.data.msg);
+    if (e.data && e.data.type === 'tem-vs-req' && e.ports && e.ports[0]) vpServe(e.data, e.ports[0]);
+  });
+  function goFromCache() {
+    try {
+      if (!window.caches) return;
+      caches.open('tem-badge').then(function (c) {
+        return c.match('go').then(function (r) {
+          if (!r) return;
+          return r.json().then(function (o) {
+            c.delete('go');
+            if (o && o.go && Date.now() - (o.t || 0) < 120000) goOnce(o.go, o.msg);
+          });
+        });
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  /* iPhone brings the app to the front first and runs the service worker's "tap" a moment later:
+     look for the target again during the next few seconds, not only once */
+  var GO_T = [];
+  function goWatch() {
+    goFromCache();
+    GO_T.forEach(clearTimeout); GO_T = [];
+    [300, 700, 1200, 2000, 3200, 5000, 8000].forEach(function (ms) { GO_T.push(setTimeout(goFromCache, ms)); });
+  }
+  goWatch();
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') goWatch(); });
+  window.addEventListener('focus', goWatch);
+  window.addEventListener('pageshow', goWatch);
+  /* ===================== the Android / iPhone app around this launcher (1.1.36) =====================
+     Inside our own app the launcher talks to it: its push token, calls (speaker, screen off at the ear),
+     saving straight to the Gallery / Photos, and "open this" when a notification is tapped. */
+  var NAT = { on: false, platform: '', token: '', send: null, wait: {}, n: 0, bio: false, loc: false, geo: null, version: '', install: false };
+  (function () {
+    try {
+      if (window.TripNative && typeof window.TripNative.postMessage === 'function') {
+        NAT.send = function (o) { window.TripNative.postMessage(JSON.stringify(o)); };
+        window.TripNative.onmessage = function (e) { var d = null; try { d = JSON.parse(e.data); } catch (er) {} if (d) natEvent(d); };
+      } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.trip) {
+        NAT.send = function (o) { window.webkit.messageHandlers.trip.postMessage(JSON.stringify(o)); };
+        window.__tripNative = function (d) { if (d && typeof d === 'object') natEvent(d); };
+      }
+    } catch (e) { NAT.send = null; }
+    if (NAT.send) { NAT.on = true; document.documentElement.classList.add('native'); NAT.send({ t: 'hello' }); }
+  })();
+  function natSend(o) { if (NAT.on) try { NAT.send(o); } catch (e) {} }
+  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token, version: NAT.version, install: NAT.install, livePost: !!NAT.livePost, files: !!NAT.files, notif: NAT.notif || '', fsi: NAT.fsi, bat: NAT.bat, voip: NAT.voip || '', apns: NAT.apns || '' }, APPORIGIN); } catch (e) {} }
+  /* 1.1.42: the strip under the phone's clock takes the colour of the app's top bar, and the Android / iPhone app is told
+     whether the clock digits must be dark (light page) or white (dark page, call screen, start screen) */
+  var THEME = { dark: false, bar: '#ffffff' }, BAR_SENT = '';
+  function shown(id) { var el = $(id); return !!el && !el.classList.contains('hidden'); }
+  function barSync() {
+    var black = shown('callView') || shown('vpView') || shown('qrView'), over = black || shown('splash') || shown('setup');
+    var dark = over ? true : THEME.dark, col = black ? '#000000' : over ? '#1e3a8a' : THEME.bar;
+    if (!over) { document.documentElement.style.background = col; document.body.style.background = col; }
+    var meta = document.querySelector('meta[name=theme-color]'); if (meta && meta.getAttribute('content') !== col) meta.setAttribute('content', col);
+    var key = (dark ? 'd' : 'l') + col;
+    if (key === BAR_SENT || !NAT.on) return;
+    BAR_SENT = key;
+    natSend({ t: 'bar', dark: dark, color: col });
+  }
+  setInterval(barSync, 500);
+  /* 1.1.44: the sizes of the phone's clock strip / home bar, for the app inside (it covers the whole screen) */
+  var INSET_SENT = '';
+  function insetTell(force) {
+    if (!APPWIN) return;
+    var pr = $('insetProbe'); if (!pr) { pr = document.createElement('div'); pr.id = 'insetProbe'; document.body.appendChild(pr); }
+    var cs = getComputedStyle(pr), px = function (v) { return Math.max(0, Math.round(parseFloat(v) || 0)); };
+    var o = { type: 'tem-inset', t: px(cs.paddingTop), r: px(cs.paddingRight), b: px(cs.paddingBottom), l: px(cs.paddingLeft) };
+    var key = [o.t, o.r, o.b, o.l].join(',');
+    if (key === INSET_SENT && !force) return;
+    INSET_SENT = key;
+    try { APPWIN.postMessage(o, APPORIGIN); } catch (e) {}
+  }
+  setInterval(function () { insetTell(false); }, 1000);
+  window.addEventListener('resize', function () { setTimeout(function () { insetTell(false); }, 60); });
+  function natEvent(d) {
+    if (d.t === 'hello' || d.t === 'token' || d.t === 'perm') {
+      if (d.t === 'hello') BAR_SENT = '';
+      if (typeof d.notif === 'string') NAT.notif = d.notif === 'granted' || d.notif === 'denied' ? d.notif : '';
+      if (typeof d.fsi === 'boolean') NAT.fsi = d.fsi;
+      if (typeof d.bat === 'boolean') NAT.bat = d.bat;
+      /* 1.1.43: the iPhone's call-push token (CallKit) */
+      if (typeof d.voip === 'string' && /^[0-9a-fA-F]{0,200}$/.test(d.voip)) NAT.voip = d.voip;
+      /* 1.1.44: the iPhone's own Apple token (alerts straight to Apple through the relay) */
+      if (typeof d.apns === 'string' && /^[0-9a-fA-F]{0,200}$/.test(d.apns)) NAT.apns = d.apns;
+      if (typeof d.platform === 'string' || !NAT.platform) NAT.platform = d.platform === 'ios' ? 'ios' : 'android';
+      if (typeof d.token === 'string') NAT.token = d.token.slice(0, 4000);
+      if (d.bio === true) NAT.bio = true;
+      if (d.loc === true) NAT.loc = true;
+      if (d.install === true) NAT.install = true;
+      if (d.tone === true) NAT.tone = true;
+      if (d.livePost === true) NAT.livePost = true;
+      if (d.files === true) NAT.files = true;
+      if (typeof d.version === 'string') NAT.version = d.version.slice(0, 30);
+      natToApp();
+    } else if (d.t === 'go') {
+      if (d.msg === 'answer' && /^call:/.test(String(d.go || ''))) { cvPre(String(d.go), String(d.name || ''), !!d.video); fastAnswer(String(d.go), String(d.name || '')); }
+      goOnce(String(d.go || ''), String(d.msg || ''), 'n' + Date.now());
+    }
+    else if (d.t === 'bio') natBioRes(d);
+    /* 1.1.43: hung up on the iPhone's own call screen (CallKit) */
+    else if (d.t === 'hangup') { if (CV) { cvBye(); cvSend({ type: 'tem-call-hangup' }); cvStop(ct('ended')); } }
+    else if (d.t === 'mute') { if (CV && !!CV.muted !== !!d.on) { CV.muted = !!d.on; cvTracks('audio', !CV.muted); cvCtlAll('mute:' + (CV.muted ? 1 : 0)); cvDraw(); } }
+    else if (d.t === 'liveNat') { if (APPWIN) try { APPWIN.postMessage({ type: 'tem-live-nat', st: String(d.st || '').slice(0, 10) }, APPORIGIN); } catch (er) {} }
+    else if (d.t === 'loc' && NAT.geo) NAT.geo({ type: 'tem-geo-pos', id: 'w', lat: Number(d.lat), lng: Number(d.lng), acc: Number(d.acc) || 50, heading: d.heading == null ? null : Number(d.heading), speed: d.speed == null ? null : Number(d.speed), t: Date.now() });
+    else if (d.t === 'locErr' && NAT.geo) NAT.geo({ type: 'tem-geo-err', id: 'w', error: d.error === 'denied' ? 'denied' : 'error' });
+    else if (d.t === 'saved') { var f = NAT.wait[d.id]; delete NAT.wait[d.id]; if (f) f(!!d.ok, d.why ? String(d.why).slice(0, 40) : ''); }
+  }
+  /* save a photo / video / file through the app: straight into the Gallery (Android) or Photos (iPhone) */
+  function natSave(blob, name, media, reply, install) {
+    var id = 's' + (++NAT.n), CH = 393216, off = 0;
+    NAT.wait[id] = function (ok, why) { reply(ok ? { ok: true, how: 'native', media: !!media } : { ok: false, err: why || 'fail' }); };
+    natSend({ t: 'saveBegin', id: id, name: name, mime: blob.type || 'application/octet-stream', media: !!media, size: blob.size, install: !!install });
+    var next = function () {
+      if (off >= blob.size) { natSend({ t: 'saveEnd', id: id }); return; }
+      var part = blob.slice(off, off + CH), r = new FileReader();
+      r.onload = function () { natSend({ t: 'saveChunk', id: id, b64: String(r.result).split(',')[1] || '' }); off += CH; setTimeout(next, 0); };
+      r.onerror = function () { delete NAT.wait[id]; reply({ ok: false, err: 'fail' }); };
+      r.readAsDataURL(part);
+    };
+    next();
+  }
+  /* save a photo or file from the app to the phone (Google's frame may not be allowed to download) */
+  function saveFile(blob, name) {
+    if (!(blob instanceof Blob)) return;
+    name = String(name || 'file').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'file';
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+  }
+  function okOrigin(o) { return /^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(o) || o === 'https://script.google.com'; }
+  /* 1.1.46: the app opened a chat / an alert / an expense / a request: its notifications leave the phone's list
+     (the alerts of this website, and the phone app's own). '*' = all but chats and calls, 'chat:*' = all chats */
+  function ntfMatch(g, want) {
+    g = String(g || ''); if (!g) return false;
+    if (want === '*') return !/^(chat|call):/.test(g);
+    if (want === 'chat:*') return /^chat:/.test(g);
+    return g.split('@')[0] === String(want).split('@')[0];
+  }
+  function ntfClear(go) {
+    if (go !== '*' && go !== 'chat:*' && !validGo(go)) return;
+    natSend({ t: 'clear', go: go });
+    try {
+      if (!navigator.serviceWorker || !navigator.serviceWorker.getRegistration) return;
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (!reg || !reg.getNotifications) return;
+        return reg.getNotifications().then(function (list) {
+          list.forEach(function (n) { var g = (n.data && n.data.go) || String(n.tag || '').replace(/^tem-/, ''); if (ntfMatch(g, go)) n.close(); });
+        });
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  function localNotify(title, body, go) {
+    if (!('Notification' in window) || Notification.permission !== 'granted' || document.visibilityState === 'visible') return;
+    if (!navigator.serviceWorker) return;
+    navigator.serviceWorker.ready.then(function (reg) {
+      reg.showNotification(title, { body: body, icon: 'icon-192.png', badge: 'badge-96.png', tag: 'tem-' + Date.now(), data: { go: validGo(go) } });
+    }).catch(function () {});
+  }
+  window.addEventListener('message', function (e) {
+    if (!okOrigin(e.origin) || !e.data || typeof e.data !== 'object') return;
+    if (e.source && e.data.type !== 'tem-go') { APPWIN = e.source; APPORIGIN = e.origin; if (PENDING_GO && e.data.type === 'tem-ready') sendGo(PENDING_GO, PENDING_MSG); }
+    if (e.data.type === 'tem-ready') { hideSplash(); natToApp(); barSync(); insetTell(true); }
+    /* 1.1.42: the app's colours (for the strip under the clock), and asks for the phone app */
+    if (e.data.type === 'tem-theme') {
+      THEME.dark = !!e.data.dark;
+      if (/^#[0-9a-fA-F]{3,8}$/.test(String(e.data.bar || ''))) THEME.bar = String(e.data.bar); else THEME.bar = THEME.dark ? '#121b2e' : '#ffffff';
+      barSync();
+    }
+    if (e.data.type === 'tem-native-settings' && /^(notif|fsi|bat)$/.test(String(e.data.what || ''))) natSend({ t: 'settings', what: String(e.data.what) });
+    if (e.data.type === 'tem-native-hello') natSend({ t: 'hello' });
+    if (e.data.type === 'tem-save') {
+      var vsrc = e.source, vorg = e.origin;
+      try { vsrc.postMessage({ type: 'tem-save-ack' }, vorg); } catch (er) {}
+      saveMedia(e.data.blob, e.data.name, !!e.data.media, function (r) { try { vsrc.postMessage(Object.assign({ type: 'tem-save-res' }, r), vorg); } catch (er) {} });
+    }
+    /* calls */
+    if (e.data.type === 'tem-call-answer-now' && CV && CV.role === 'in' && !CV.accepted) cvAccept();
+    /* 1.1.40: the app asks for a call the launcher answered by itself (it was answered before the app opened) */
+    if (e.data.type === 'tem-call-adopt-q') { if (CV && CV.fast && CV.cid === String(e.data.cid || '')) fastAdopt(e.source, e.origin); }
+    if (e.data.type === 'tem-call-open') {
+      /* the same call the launcher is answering: the app takes it over, nothing starts again */
+      if (CV && CV.fast && e.data.cid && CV.cid === String(e.data.cid)) { fastAdopt(e.source, e.origin); return; }
+      if (FAST && !CV && e.data.cid && FAST.cid === String(e.data.cid)) FAST = null;
+      var pre = PRE; PRE = null; $('callView').classList.remove('pre');
+      if (pre && pre.declined && e.data.role === 'in' && Date.now() - pre.t < 60000) { cvOpen(e.source, e.origin, e.data); cvSend({ type: 'tem-call-decline' }); cvStop('', true); }
+      else { cvOpen(e.source, e.origin, e.data); if (e.data.auto && e.data.role === 'in') setTimeout(cvAccept, 60); }
+    }
+    if (e.data.type === 'tem-call-go' && CV) cvGo(e.data);
+    /* 1.1.44: the other person answered on the iPhone's own call screen; the call connects when their app opens */
+    if (e.data.type === 'tem-call-status' && CV && CV.st !== 'live' && e.data.k === 'picked') { CV.picked = true; cvStatus(ct('picked')); }
+    if (e.data.type === 'tem-call-answer' && CV) cvAnswer(e.data.sdp, e.data.peer);
+    /* group calls: one connection per person */
+    if (e.data.type === 'tem-call-offer-to' && CV) cvOffer(String(e.data.peer || '').slice(0, 40), String(e.data.name || '').slice(0, 60), e.data.ice, e.data.ini);
+    if (e.data.type === 'tem-call-answer-to' && CV) cvAnswerTo(String(e.data.peer || '').slice(0, 40), String(e.data.name || '').slice(0, 60), e.data.ice, e.data.offer, e.data.ini);
+    if (e.data.type === 'tem-call-peer-gone' && CV) cvPeerGone(String(e.data.peer || ''));
+    if (e.data.type === 'tem-call-close' && CV) cvStop(String(e.data.text || '').slice(0, 140), !e.data.text);
+    /* a chat video: full screen here, playing while it downloads */
+    if (e.data.type === 'tem-video') vpOpen(e.source, e.origin, e.data);
+    if (e.data.type === 'tem-qr-scan') qrOpen(e.source, e.origin, e.data);
+    /* 1.1.38: a new version of our Android app, downloaded by the app page: the phone's installer opens */
+    if (e.data.type === 'tem-install' && e.data.blob instanceof Blob) {
+      var isrc = e.source, iorg = e.origin;
+      if (!NAT.install) { try { isrc.postMessage({ type: 'tem-install-res', ok: false, err: 'old' }, iorg); } catch (er) {} }
+      else natSave(e.data.blob, 'update.apk', false, function (r) { try { isrc.postMessage(Object.assign({ type: 'tem-install-res' }, r), iorg); } catch (er) {} }, true);
+    }
+    if (e.data.type === 'tem-vr-res') vpRes(e.data);
+    if (e.data.type === 'tem-vblob-prog' && VP && e.data.id === VP.id) vpProg(Number(e.data.p) || 0);
+    if (e.data.type === 'tem-vblob-res' && VP && e.data.id === VP.id) vpBlobRes(e.data);
+    if (e.data.type === 'tem-badge') setBadge(e.data.count);
+    if (e.data.type === 'tem-ntf-clear') ntfClear(String(e.data.go || ''));
+    if (e.data.type === 'tem-notify') localNotify(String(e.data.title || '').slice(0, 80), String(e.data.body || '').slice(0, 200), e.data.go);
+    if (e.data.type === 'tem-push-config' && e.data.config && typeof e.data.config === 'object') {
+      var c = e.data.config, ok = ['apiKey', 'projectId', 'messagingSenderId', 'appId', 'vapidKey'].every(function (k) { return typeof c[k] === 'string' && c[k]; });
+      if (!ok) return;
+      PUSH.cfg = c; PUSH.src = e.source; PUSH.origin = e.origin;
+      if (pushSupported() && Notification.permission === 'granted') pushToken();
+      else if (pushSupported() && Notification.permission === 'default' && standalone() && !ntfX) $('ntfBar').classList.remove('hidden');
+    }
+    if (e.data.type === 'tem-push-ask') { PUSH.src = e.source; PUSH.origin = e.origin; askPush(); }
+    if (e.data.type === 'tem-mic-start') {
+      MIC.src = e.source; MIC.origin = e.origin; micReply({ type: 'tem-mic-ack' });
+      var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var lang = String(e.data.lang || 'km'), SRok = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      /* the phone's own recognition is the fastest (Android: Khmer + English, iPhone: English); otherwise record */
+      var mode = e.data.mode === 'sr' ? 'sr' : e.data.mode === 'rec' ? 'rec' : (SRok && !(ios && lang === 'km') ? 'sr' : 'rec');
+      MIC.canRec = e.data.canRec !== false; MIC.levels = !!e.data.levels;
+      micStart(lang, mode, e.data.maxSec);
+    }
+    if (e.data.type === 'tem-mic-stop') micStop(false);
+    /* keep the screen on while sharing live location (only the top page may ask for this) */
+    if (e.data.type === 'tem-wake') { WAKE.want = !!e.data.on; wakeApply(); }
+    /* location: Google's frame blocks it on Android, so the launcher (the top page) asks the phone */
+    /* 1.1.39: live location — our Android app sends the positions to the server itself while the screen is locked */
+    if (e.data.type === 'tem-live-native') {
+      if (NAT.on && NAT.livePost) natSend({ t: 'livePost', url: e.data.on ? String(e.data.url || '').slice(0, 300) : '', ticket: e.data.on ? String(e.data.ticket || '').slice(0, 4000) : '', until: Number(e.data.until) || 0 });
+      return;
+    }
+    if (e.data.type === 'tem-geo-get' || e.data.type === 'tem-geo-watch') {
+      var src = e.source, org = e.origin, rid = String(e.data.id || '');
+      var send = function (m) { try { src.postMessage(m, org); } catch (er) {} };
+      send({ type: 'tem-geo-ack', id: rid });
+      if (!navigator.geolocation) { send({ type: 'tem-geo-err', id: rid, error: 'unsupported' }); return; }
+      var ok = function (p) { send({ type: 'tem-geo-pos', id: rid, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, heading: p.coords.heading, speed: p.coords.speed, t: Date.now() }); };
+      var bad = function (er) { send({ type: 'tem-geo-err', id: rid, error: er && er.code === 1 ? 'denied' : (er && er.message) || 'error' }); };
+      var opts = { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 };
+      if (e.data.type === 'tem-geo-get') {
+        /* the first answer is often rough (Wi-Fi / towers): wait up to 7 s for GPS and send the best one */
+        var best = null, done = false, wid = null;
+        var fin = function () { if (done) return; done = true; try { navigator.geolocation.clearWatch(wid); } catch (er) {} if (best) ok(best); else bad({ message: 'timeout' }); };
+        wid = navigator.geolocation.watchPosition(function (p) { if (!best || p.coords.accuracy < best.coords.accuracy) best = p; if (best.coords.accuracy <= 25) fin(); },
+          function (er) { if (!best) { done = true; try { navigator.geolocation.clearWatch(wid); } catch (x) {} bad(er); } else fin(); }, opts);
+        setTimeout(fin, 7000);
+        return;
+      }
+      if (GEO.watch !== null) { try { navigator.geolocation.clearWatch(GEO.watch); } catch (er) {} GEO.watch = null; }
+      /* 1.1.37: inside our Android app the app itself follows the position, also with the screen locked */
+      if (NAT.loc) { NAT.geo = e.data.on ? send : null; natSend({ t: 'loc', on: !!e.data.on }); return; }
+      if (e.data.on) GEO.watch = navigator.geolocation.watchPosition(ok, bad, opts);
+    }
+    if (e.data.type === 'tem-mic-cancel') micStop(true);
+    /* keep the login (iPhone clears the app's storage inside the frame when the app is closed) */
+    if (e.data.type === 'tem-auth-save' && typeof e.data.token === 'string' && e.data.token.length < 400) { try { localStorage.setItem('tem_launcher_auth', e.data.token); } catch (er) {} }
+    if (e.data.type === 'tem-reload') {
+      APPWIN = null;
+      try { if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then(function (r) { if (r) r.update(); }).catch(function () {}); } catch (er) {}
+      frame.src = 'about:blank'; setTimeout(open, 80);
+    }
+    /* signing out: the sign-in and the quick-start copy go; the locked store stays for the same account */
+    if (e.data.type === 'tem-auth-clear') { try { localStorage.removeItem('tem_launcher_auth'); } catch (er) {} kclear(); }
+    if (e.data.type === 'tem-sput' && SKEY.test(String(e.data.key || '')) && sOk(e.data.value)) sput(e.data.key, e.data.value);
+    if (e.data.type === 'tem-sdel') { if (e.data.all === true) sdel(); else if (SKEY.test(String(e.data.key || ''))) sdel(e.data.key); }
+    if (e.data.type === 'tem-sget' && SKEY.test(String(e.data.key || ''))) {
+      var ssrc = e.source, sorg = e.origin, srid = String(e.data.rid || '').slice(0, 20);
+      sget(e.data.key).then(function (v) { try { ssrc.postMessage({ type: 'tem-sres', rid: srid, value: v }, sorg); } catch (er) {} });
+    }
+    if (e.data.type === 'tem-auth-get') {
+      var tok = ''; try { tok = localStorage.getItem('tem_launcher_auth') || ''; } catch (er) {}
+      var src = e.source, org = e.origin;
+      (tok ? kall() : Promise.resolve({})).then(function (keep) { try { src.postMessage({ type: 'tem-auth', token: tok, keep: keep }, org); } catch (er) {} });
+    }
+    if (e.data.type === 'tem-keep' && KEEP_OK.test(String(e.data.key || '')) && typeof e.data.value === 'string' && e.data.value.length < 4000000) kput(e.data.key, e.data.value);
+    if (e.data.type === 'tem-bio-new') bioNew(e.source, e.origin, e.data);
+    if (e.data.type === 'tem-bio-get') bioGet(e.source, e.origin, e.data);
+    if (e.data.type === 'tem-bio-cancel') bioStop();
+  });
+  /* ---- a small store for the app's last data (IndexedDB on your own website) ---- */
+  var KEEP_OK = /^tem_(boot|av|chc_[a-z0-9._-]{1,30})$/, KDB = null;
+  function kdb() {
+    if (KDB) return KDB;
+    KDB = new Promise(function (ok, bad) {
+      try { var r = indexedDB.open('tem-keep', 1); r.onupgradeneeded = function () { r.result.createObjectStore('kv'); }; r.onsuccess = function () { ok(r.result); }; r.onerror = function () { bad(r.error); }; }
+      catch (er) { bad(er); }
+    });
+    return KDB;
+  }
+  function kput(k, v) { return kdb().then(function (db) { return new Promise(function (ok) { var t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = ok; t.onerror = ok; }); }).catch(function () {}); }
+  function kclear() { return kdb().then(function (db) { return new Promise(function (ok) { var t = db.transaction('kv', 'readwrite'); t.objectStore('kv').clear(); t.oncomplete = ok; t.onerror = ok; }); }).catch(function () {}); }
+  function kall() {
+    var read = kdb().then(function (db) {
+      return new Promise(function (ok) {
+        var out = {}, t = db.transaction('kv'), c = t.objectStore('kv').openCursor();
+        c.onsuccess = function () { var x = c.result; if (x) { if (KEEP_OK.test(String(x.key))) out[x.key] = x.value; x.continue(); } else ok(out); };
+        c.onerror = function () { ok(out); };
+      });
+    }).catch(function () { return {}; });
+    /* never hold up the login for long */
+    return Promise.race([read, new Promise(function (ok) { setTimeout(function () { ok({}); }, 900); })]);
+  }
+  /* ---- a second copy of the app's chat history, photos, voice messages, files and receipts (iPhone empties the
+     app's own storage inside Google's frame when the app is closed). Everything arrives locked (AES-GCM) with a key
+     only the account has, so it can stay after signing out; "Clear saved data" in the app removes it. ---- */
+  var SKEY = /^(f|rc|ch|v):[A-Za-z0-9_.@:-]{1,140}$/, SDB = null;
+  try { indexedDB.deleteDatabase('tem-store'); } catch (er) {}
+  function sdb() {
+    if (SDB) return SDB;
+    SDB = new Promise(function (ok, bad) {
+      try { var r = indexedDB.open('tem-store2', 1); r.onupgradeneeded = function () { r.result.createObjectStore('s').createIndex('t', 't'); }; r.onsuccess = function () { ok(r.result); }; r.onerror = function () { bad(r.error); }; }
+      catch (er) { bad(er); }
+    });
+    SDB.catch(function () { SDB = null; });
+    return SDB;
+  }
+  /* only locked items: { enc: 2, iv, j: ArrayBuffer, (iv2, b: ArrayBuffer) } */
+  function sOk(v) {
+    if (!v || typeof v !== 'object' || v.enc !== 2) return false;
+    if (!(v.j instanceof ArrayBuffer) || v.j.byteLength > 4 * 1048576) return false;
+    if (v.b !== undefined && !(v.b instanceof ArrayBuffer && v.b.byteLength < 30 * 1048576)) return false;
+    return true;
+  }
+  function sput(k, v) {
+    sdb().then(function (db) {
+      var t = db.transaction('s', 'readwrite'), st = t.objectStore('s');
+      st.put({ v: v, t: Date.now() }, k);
+      /* keep at most 1,500 entries: the oldest go first */
+      var c = st.count(); c.onsuccess = function () { var extra = c.result - 1500; if (extra > 0) { var cur = st.index('t').openCursor(); cur.onsuccess = function () { var x = cur.result; if (x && extra-- > 0) { x.delete(); x.continue(); } }; } };
+    }).catch(function () {});
+  }
+  function sget(k) { return sdb().then(function (db) { return new Promise(function (ok) { var q = db.transaction('s').objectStore('s').get(k); q.onsuccess = function () { ok(q.result ? q.result.v : null); }; q.onerror = function () { ok(null); }; }); }).catch(function () { return null; }); }
+  function sdel(k) { sdb().then(function (db) { var st = db.transaction('s', 'readwrite').objectStore('s'); if (k) st.delete(k); else st.clear(); }).catch(function () {}); }
+  /* ---- Face ID / fingerprint (WebAuthn on your own website; Google's frame cannot use it) ---- */
+  function b64u(buf) { var s = '', b = new Uint8Array(buf); for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function unb64u(t) { t = String(t).replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '='; var s = atob(t), b = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
+  function rnd(n) { var b = new Uint8Array(n); crypto.getRandomValues(b); return b; }
+  function bioOk() { return !!(window.PublicKeyCredential && navigator.credentials && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable); }
+  var BIO = { src: null, org: '', kind: '', data: null, n: 0, ac: null };
+  var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var ICO_FACE = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M9 9v1.5M15 9v1.5M12 9v4h-1M9 16c1.8 1.4 4.2 1.4 6 0"/></svg>';
+  var ICO_FINGER = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5A8 8 0 0 1 20 12v1M4 10.5A8 8 0 0 0 4 12c0 2 .5 3.5 1.2 5"/><path d="M8 12a4 4 0 0 1 8 0c0 2.7-.4 5.2-1.3 7.4M12 12c0 3.3-.8 6.2-2.4 8.4M8.3 15.5c-.2 1.5-.7 2.9-1.4 4"/></svg>';
+  /* a new request cancels an older one; answers of an old request are dropped */
+  function bioStart(src, org, kind, d) {
+    try { if (BIO.ac) BIO.ac.abort(); } catch (er) {}
+    BIO = { src: src, org: org, kind: kind, data: d, n: BIO.n + 1, ac: window.AbortController ? new AbortController() : null };
+    return BIO.n;
+  }
+  function bioSig() { return BIO.ac ? { signal: BIO.ac.signal } : {}; }
+  function bioReply(o, n) { if (n && n !== BIO.n) return; try { if (BIO.src) BIO.src.postMessage(Object.assign({ type: 'tem-bio-res' }, o), BIO.org); } catch (er) {} }
+  function bioHide() { $('bioSheet').classList.add('hidden'); }
+  function bioStop() { if (NAT.bio && BIO.kind) natSend({ t: 'bioStop' }); try { if (BIO.ac) BIO.ac.abort(); } catch (er) {} BIO.n++; BIO.src = null; BIO.kind = ''; bioHide(); }
+  function bioShow(kind) {
+    var what = IOS ? 'Face ID' : 'fingerprint / face unlock';
+    $('bioIco').innerHTML = IOS ? ICO_FACE : ICO_FINGER;
+    $('bioT').textContent = kind === 'new' ? 'Turn on ' + what : 'Unlock Trip Expense';
+    $('bioP').textContent = kind === 'new' ? 'Tap Continue, then confirm with ' + what + '.' : 'Tap the button and look at the phone / touch the sensor.';
+    $('bioGo').textContent = kind === 'new' ? 'Continue' : (IOS ? 'Unlock with Face ID' : 'Unlock');
+    $('bioNo').textContent = kind === 'new' ? 'Cancel' : 'Use PIN / pattern';
+    $('bioSheet').classList.remove('hidden');
+  }
+  function bioCreate() {
+    var d = BIO.data || {}, n = BIO.n;
+    return navigator.credentials.create(Object.assign({ publicKey: {
+      rp: { name: 'Trip Expense' }, user: { id: rnd(16), name: String(d.user || 'user').slice(0, 60), displayName: String(d.name || d.user || 'user').slice(0, 60) },
+      challenge: rnd(32), pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' }, timeout: 60000, attestation: 'none' } }, bioSig()))
+      .then(function (c) { if (n !== BIO.n) return; bioHide(); bioReply({ op: 'new', ok: true, id: b64u(c.rawId) }, n); });
+  }
+  function bioAssert() {
+    var d = BIO.data || {}, n = BIO.n;
+    return navigator.credentials.get(Object.assign({ publicKey: { challenge: rnd(32), allowCredentials: [{ type: 'public-key', id: unb64u(d.id) }], userVerification: 'required', timeout: 60000 } }, bioSig()))
+      .then(function () { if (n !== BIO.n) return; bioHide(); bioReply({ op: 'get', ok: true }, n); });
+  }
+  function bioNew(src, org, d) {
+    var n = bioStart(src, org, 'new', d);
+    if (NAT.bio) return natBio('new', n);
+    if (!bioOk()) return bioReply({ op: 'new', ok: false, err: 'unsupported' }, n);
+    PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function (y) { if (!y) bioReply({ op: 'new', ok: false, err: 'unsupported' }, n); else if (n === BIO.n) bioShow('new'); })
+      .catch(function () { bioReply({ op: 'new', ok: false, err: 'unsupported' }, n); });
+  }
+  function bioGet(src, org, d) {
+    var n = bioStart(src, org, 'get', d);
+    if (NAT.bio) return natBio('get', n);
+    if (!bioOk() || !/^[A-Za-z0-9_-]{16,700}$/.test(String(d.id || ''))) return bioReply({ op: 'get', ok: false, err: 'unsupported' }, n);
+    /* try at once (Android, newer iPhones allow it); if the phone wants a tap first, show the big button.
+       iPhone asks for a tap on the launcher itself: the tap in the app's frame does not count there */
+    var t0 = Date.now();
+    bioAssert().catch(function (er) {
+      if (n !== BIO.n) return;
+      var name = er && er.name;
+      if (Date.now() - t0 < 2500 && name !== 'AbortError') bioShow('get');
+      else { bioHide(); bioReply({ op: 'get', ok: false, err: name || 'fail' }, n); }
+    });
+  }
+  /* 1.1.36.1: inside our Android / iPhone app the web view has no WebAuthn: the app shows the phone's own
+     fingerprint / face screen (BiometricPrompt, Face ID) and answers here */
+  function natBio(op, n) { natSend({ t: 'bio', op: op, n: n }); }
+  function natBioRes(d) {
+    var n = Number(d.n);
+    if (n !== BIO.n || !BIO.kind) return;
+    var op = BIO.kind, id = /^[A-Za-z0-9_-]{16,700}$/.test(String(d.id || '')) ? String(d.id) : '';
+    if (d.ok && (op === 'get' || id)) bioReply(op === 'new' ? { op: 'new', ok: true, id: id } : { op: 'get', ok: true }, n);
+    else bioReply({ op: op, ok: false, err: d.err === 'cancel' ? 'cancel' : d.err === 'NotAllowedError' ? 'NotAllowedError' : 'unsupported' }, n);
+    BIO.kind = '';
+  }
+  $('bioGo').onclick = function () {
+    var n = BIO.n;
+    if (!BIO.src || !BIO.kind) return bioHide();
+    /* the request must start inside this tap (iPhone), so nothing may run before it */
+    (BIO.kind === 'new' ? bioCreate() : bioAssert()).catch(function (er) { if (n !== BIO.n) return; bioHide(); bioReply({ op: BIO.kind, ok: false, err: (er && er.name) || 'fail' }, n); });
+  };
+  $('bioNo').onclick = function () { var n = BIO.n, k = BIO.kind; bioHide(); bioReply({ op: k, ok: false, err: 'cancel' }, n); try { if (BIO.ac) BIO.ac.abort(); } catch (er) {} };
 
-    // ការពារករណីអ៊ីនធឺណិតយឺត ឱ្យបិទផ្ទាំង Loading ក្រោយ ៥ វិនាទីដោយស្វ័យប្រវត្តិ
-    setTimeout(hideLoader, 5000);
-  </script>
+  /* ---- Android app (APK): explain the thin address bar. Android shows it when the website does not confirm the app
+     through /.well-known/assetlinks.json. Runs only inside the Android app, or with ?check=1 */
+  function twaPkg() {
+    var m = /^android-app:\/\/([A-Za-z0-9_.]+)/.exec(document.referrer || ''), p = m ? m[1] : '';
+    try { if (p) sessionStorage.setItem('tem_twa', p); else p = sessionStorage.getItem('tem_twa') || ''; } catch (er) {}
+    return p;
+  }
+  function twaShow(parts, state, force) {
+    var seen = ''; try { seen = localStorage.getItem('tem_twa_x') || ''; } catch (er) {}
+    if (!force && (seen === 'never' || seen.indexOf(state + '|') === 0 && Date.now() - Number(seen.split('|')[1]) < 3 * 864e5)) return;
+    var body = $('twaBody'); body.innerHTML = '';
+    parts.forEach(function (t) {
+      var p = document.createElement('p');
+      String(t).split('`').forEach(function (bit, i) { if (i % 2) { var c = document.createElement('code'); c.textContent = bit; p.appendChild(c); } else p.appendChild(document.createTextNode(bit)); });
+      body.appendChild(p);
+    });
+    $('twaSheet').classList.remove('hidden');
+    $('twaOk').onclick = function () { $('twaSheet').classList.add('hidden'); try { localStorage.setItem('tem_twa_x', state + '|' + Date.now()); } catch (er) {} };
+    $('twaNever').onclick = function () { $('twaSheet').classList.add('hidden'); try { localStorage.setItem('tem_twa_x', 'never'); } catch (er) {} };
+  }
+  function twaCheck() {
+    var force = /[?&]check=1(&|$)/.test(location.search), pkg = twaPkg();
+    if ((!pkg && !force) || navigator.onLine === false) return;
+    var url = location.origin + '/.well-known/assetlinks.json', app = pkg ? '`' + pkg + '`' : 'your app';
+    var fix = 'After a change: uninstall the app and install the APK again (Android checks the file when the app is installed).';
+    fetch(url, { cache: 'no-store' }).then(function (r) {
+      return r.text().then(function (t) { return { code: r.status, t: t }; });
+    }).then(function (x) {
+      var j = null; try { j = JSON.parse(x.t); } catch (er) {}
+      if (x.code !== 200 || (!j && /<html/i.test(x.t))) return twaShow([
+        'Android shows the address bar because this file was not found (' + x.code + '): `' + url + '`',
+        'Upload `assetlinks.json` from the PWABuilder ZIP into a folder named `.well-known` at the root of this website, and the empty file `.nojekyll` next to index.html.',
+        'With your own domain on GitHub Pages, both go into the repository that serves this domain.', fix], 'missing', force);
+      if (!Array.isArray(j)) return twaShow(['The file `' + url + '` is not valid. Paste the content of `assetlinks.json` from the PWABuilder ZIP exactly as it is (it starts with [ and ends with ]).', fix], 'bad', force);
+      var apps = j.filter(function (s) { return s && s.target && s.target.namespace === 'android_app'; });
+      var mine = apps.filter(function (s) { return !pkg || s.target.package_name === pkg; });
+      var names = apps.map(function (s) { return s.target.package_name; }).join(', ') || 'none';
+      if (!mine.length) return twaShow(['The file `' + url + '` does not list ' + app + '. It lists: `' + names + '`.',
+        'Use the assetlinks.json from the same PWABuilder ZIP as the APK you installed (the Package ID must be the same).', fix], 'package', force);
+      var rel = mine.some(function (s) { return Array.isArray(s.relation) && s.relation.indexOf('delegate_permission/common.handle_all_urls') !== -1; });
+      var fps = []; mine.forEach(function (s) { (s.target.sha256_cert_fingerprints || []).forEach(function (f) { fps.push(f); }); });
+      if (!rel || !fps.length) return twaShow(['The file `' + url + '` lists ' + app + ' but ' + (!rel ? 'without the relation `delegate_permission/common.handle_all_urls`' : 'without a SHA-256 fingerprint') + '.', 'Paste the content from PWABuilder again.', fix], 'parts', force);
+      if (force) twaShow(['✅ The file is in place and lists ' + app + ' with ' + fps.length + ' fingerprint(s): `' + fps.map(function (f) { return String(f).slice(0, 23) + '…'; }).join(' / ') + '`',
+        'If the bar still shows: the fingerprint must be the SHA-256 in `signing-key-info.txt` from PWABuilder. If the app came from Google Play, also add the "App signing key" SHA-256 from Play Console → App integrity.', fix], 'ok', true);
+    }).catch(function () { if (force) twaShow(['Could not check `' + url + '` (no connection?).'], 'net', true); });
+  }
+  setTimeout(twaCheck, 2500);
+  var ntfX = false; try { ntfX = !!localStorage.getItem('tem_launcher_ntfx'); } catch (e) {}
+  if ('Notification' in window && Notification.permission === 'default' && standalone() && !ntfX) setTimeout(function () { $('ntfBar').classList.remove('hidden'); }, 4000);
+  $('ntfBtn').onclick = function () {
+    $('ntfBar').classList.add('hidden');
+    try { Notification.requestPermission().then(function (p) { if (p === 'granted') pushToken(); else if (p === 'denied') toApp({ type: 'tem-push-state', state: 'denied' }); }); } catch (e) {}
+  };
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
+  /* ===================== 1.1.33: save to Photos / Gallery ======================
+     iPhone: the share sheet ("Save Image" / "Save Video" puts it in Photos). It needs a tap on this page,
+     so when the app's tap does not count, a button is shown. Android: a download (shows in the Gallery). */
+  var SAVE = { file: null, reply: null };
+  function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+  function saveMedia(blob, name, media, reply) {
+    if (!(blob instanceof Blob)) return;
+    name = String(name || 'file').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'file';
+    if (NAT.on) { natSave(blob, name, media, reply); return; }
+    var file = null;
+    try { file = new File([blob], name, { type: blob.type || 'application/octet-stream' }); } catch (e) { file = null; }
+    var share = false;
+    try { share = !!(media && isIOS() && file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (e) { share = false; }
+    if (share) {
+      navigator.share({ files: [file] }).then(function () { reply({ ok: true, how: 'share', media: true }); }).catch(function (er) {
+        if (er && er.name === 'AbortError') { reply({ ok: false, err: 'cancel' }); return; }
+        SAVE.file = file; SAVE.reply = reply;
+        $('saveT').textContent = /^video\//.test(file.type) ? 'Save the video' : 'Save the photo';
+        $('saveSheet').classList.remove('hidden');
+      });
+      return;
+    }
+    saveFile(blob, name);
+    reply({ ok: true, how: 'download', media: !!media });
+  }
+  $('saveGo').onclick = function () {
+    var f = SAVE.file, reply = SAVE.reply || function () {};
+    $('saveSheet').classList.add('hidden'); SAVE.file = null; SAVE.reply = null;
+    if (!f) return;
+    navigator.share({ files: [f] }).then(function () { reply({ ok: true, how: 'share', media: true }); })
+      .catch(function (er) { reply({ ok: false, err: er && er.name === 'AbortError' ? 'cancel' : 'fail' }); });
+  };
+  $('saveNo').onclick = function () { $('saveSheet').classList.add('hidden'); if (SAVE.reply) SAVE.reply({ ok: false, err: 'cancel' }); SAVE.file = null; SAVE.reply = null; };
 
+  /* ===================== 1.1.33: microphone level while recording (the app draws a live wave) ===================== */
+  function micMeter(stream) {
+    micMeterStop();
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      var ac = new AC(), src = ac.createMediaStreamSource(stream), an = ac.createAnalyser(), buf = new Uint8Array(512);
+      an.fftSize = 512; src.connect(an);
+      if (ac.state === 'suspended' && ac.resume) ac.resume().catch(function () {});
+      MIC.ac = ac;
+      MIC.meter = setInterval(function () {
+        an.getByteTimeDomainData(buf);
+        var s = 0; for (var i = 0; i < buf.length; i++) { var d = (buf[i] - 128) / 128; s += d * d; }
+        micReply({ type: 'tem-mic-level', v: Math.min(1, Math.round(Math.sqrt(s / buf.length) * 300) / 100) });
+      }, 90);
+    } catch (e) { /* no level: the app shows moving bars */ }
+  }
+  function micMeterStop() { clearInterval(MIC.meter); MIC.meter = null; try { if (MIC.ac) MIC.ac.close(); } catch (e) {} MIC.ac = null; }
+
+  /* ===================== voice and video calls (WebRTC) — 1.1.34 =====================
+     The app (inside Google's frame) cannot use the camera or microphone, so the call runs here.
+     The app passes the call descriptions through its server; the phones then talk directly.
+     One person (peer 'p') or a group (one connection per person, up to 6). */
+  var CV = null;
+  var CI = {
+    mic: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-2.1A7 7 0 0 0 19 12h-2z"/></svg>',
+    micOff: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 12h-2a5 5 0 0 1-.6 2.4l1.5 1.5A7 7 0 0 0 19 12zm-4-.2V6a3 3 0 0 0-5.9-.8L15 11.8zM4.3 3 3 4.3l6 6V12a3 3 0 0 0 4.6 2.5l1.5 1.5A5 5 0 0 1 7 12H5a7 7 0 0 0 6 6.9V21h2v-2.1a7 7 0 0 0 3.2-1.2L19.7 21 21 19.7z"/></svg>',
+    cam: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.6-.4-1-1-1H4c-.6 0-1 .4-1 1v10c0 .6.4 1 1 1h12c.6 0 1-.4 1-1v-3.5l4 4v-11l-4 4z"/></svg>',
+    camOff: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6.5l-4 4V7c0-.6-.4-1-1-1H9.8L21 17.2V6.5zM3.3 2 2 3.3 4.7 6H4c-.6 0-1 .4-1 1v10c0 .6.4 1 1 1h12c.2 0 .4-.1.5-.2l3.2 3.2 1.3-1.3L3.3 2z"/></svg>',
+    flip: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 5h-3.2L15 3H9L7.2 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-5 11.5V14H9v2.5L5.5 13 9 9.5V12h6V9.5l3.5 3.5-3.5 3.5z"/></svg>',
+    end: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-1.6 0-3.2.3-4.6.7v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.6 1.8-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3L.3 13c-.2-.2-.3-.4-.3-.7 0-.3.1-.5.3-.7A16.9 16.9 0 0 1 12 7c4.5 0 8.6 1.7 11.7 4.6.2.2.3.4.3.7 0 .3-.1.5-.3.7l-2.5 2.5c-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3-.7-.7-1.6-1.3-2.6-1.8-.3-.2-.6-.5-.6-.9V9.7C15.2 9.3 13.6 9 12 9z"/></svg>',
+    phone: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>',
+    spk: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>',
+    ear: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 20c-.3 0-.6-.1-.8-.2-.7-.4-1.2-.9-1.7-2.4-.5-1.6-1.5-2.4-2.4-3.1-.8-.6-1.6-1.3-2.3-2.5-.5-.9-.8-1.9-.8-2.8 0-2.8 2.2-5 5-5s5 2.2 5 5h2c0-3.9-3.1-7-7-7S7 4.1 7 8c0 1.3.4 2.6 1 3.8.9 1.6 1.9 2.4 2.8 3.1.8.6 1.4 1.1 1.7 2.1.6 1.8 1.4 2.8 2.7 3.5.6.3 1.2.5 1.8.5 2.2 0 4-1.8 4-4h-2c0 1.1-.9 2-2 2zM7.6 2.1 6.2.7A10 10 0 0 0 3 8a10 10 0 0 0 3.2 7.3l1.4-1.4A8 8 0 0 1 5 8c0-2.3 1-4.4 2.6-5.9zM11.5 8a2.5 2.5 0 1 0 5 0 2.5 2.5 0 0 0-5 0z"/></svg>'
+  };
+  var CT0 = { video: 'Video', camOn: '{0} turned on the camera', calling: 'Calling…', ringing: 'Ringing…', connecting: 'Connecting…', reconnecting: 'Reconnecting…', inVoice: 'Incoming voice call', inVideo: 'Incoming video call',
+    picked: 'Answered — connecting…', accept: 'Accept', decline: 'Decline', end: 'End', mute: 'Mute', unmute: 'Unmute', cam: 'Camera', flip: 'Flip', ear: 'Ear', earHint: 'Tap twice to light the screen', ended: 'Call ended', declined: 'Declined', busy: 'Busy',
+    noanswer: 'No answer', speaker: 'Speaker', failed: 'The call could not connect', nomedia: 'Allow the microphone (and camera) for this app', missed: 'Missed call', muted: 'Muted', camOff: 'Camera off', people: '{0} in the call', inGroup: 'Group call', join: 'Join' };
+  function ct(k, a) { var t = (CV && CV.txt && CV.txt[k]) || CT0[k] || k; return a === undefined ? t : String(t).replace('{0}', a); }
+  function cvSend(m) {
+    try { if (CV && CV.src) { CV.src.postMessage(m, CV.org); return; } } catch (e) {}
+    if (CV && CV.fast) fastSend(CV, m);
+  }
+  /* ===== 1.1.40: "Answer" on the phone's ringing screen — the launcher answers the call itself =====
+     The app page (Google) takes several seconds to open. With the sign-in this launcher keeps, it asks the server
+     for the call and sends the answer straight away (the app's own address, doPost); the call connects while the
+     app is still opening. When the app is ready it takes the call over (it then tracks the end as usual). */
+  var FAST = null;
+  function fastUrl() { var u = String(appUrl() || '').trim().replace(/\/+$/, ''); return /\/exec$/.test(u) ? u : ''; }
+  function fastPost(o) { return fetch(fastUrl(), { method: 'POST', body: JSON.stringify(o), redirect: 'follow', cache: 'no-store' }).then(function (r) { return r.json(); }); }
+  function fastAnswer(go, name) {
+    var cid = String(go || '').slice(5).split('@')[0], tok = '';
+    try { tok = localStorage.getItem('tem_launcher_auth') || ''; } catch (e) {}
+    if (!/^[A-Za-z0-9_-]{4,40}$/.test(cid) || !tok || !fastUrl() || !window.fetch || !window.RTCPeerConnection || FAST || CV) return;
+    var f = FAST = { cid: cid, tok: tok, t0: Date.now() }, tries = 0;
+    var get = function () {
+      return fastPost({ a: 'callGet', t: tok, id: cid }).then(function (r) {
+        if (FAST !== f || CV) throw new Error('late');
+        if (!r || !r.ok || r.st !== 'ring') throw new Error('gone');
+        if (!r.offer) { if (++tries > 10) throw new Error('no offer'); return new Promise(function (ok) { setTimeout(ok, 500); }).then(get); }
+        return r;
+      });
+    };
+    get().then(function (r) {
+      if (FAST !== f || CV) return;
+      PRE = null; $('callView').classList.remove('pre');
+      cvOpen(null, '', { role: 'in', video: !!r.video, name: r.name || name, ini: r.ini || '', color: r.color || '', photo: r.photo || '', ringApp: true, txt: {} });
+      CV.fast = f; CV.cid = cid;
+      cvAccept();
+      cvAnswerTo('p', '', r.ice || [], r.offer);
+    }).catch(function () { if (FAST === f) FAST = null; });
+  }
+  function fastSend(c, m) {
+    var f = c.fast; if (!f) return;
+    if (m.type === 'tem-call-sig' && m.kind === 'answer') {
+      fastPost({ a: 'callAnswer', t: f.tok, id: f.cid, sdp: m.sdp }).then(function (r) {
+        if (!r || !r.ok) throw new Error('refused');
+        if (r.st === 'end' && CV === c) cvStop(ct('ended'));
+      }).catch(function () { if (CV === c && c.fast) { cvStop('', true); } });
+    } else if (m.type === 'tem-call-hangup' || m.type === 'tem-call-decline' || m.type === 'tem-call-fail') {
+      fastPost({ a: 'callEnd', t: f.tok, id: f.cid, reason: m.type === 'tem-call-decline' ? 'decline' : m.type === 'tem-call-fail' ? 'fail' : 'hangup' }).catch(function () {});
+    }
+  }
+  /* the app is ready: it takes over the call the launcher answered */
+  function fastAdopt(src, org) {
+    var c = CV; if (!c || !c.fast) return false;
+    c.src = src; c.org = org; c.fast = null; FAST = null;
+    try { src.postMessage({ type: 'tem-call-ack' }, org); src.postMessage({ type: 'tem-call-adopt', cid: c.cid, live: c.st === 'live', video: !!c.video }, org); } catch (e) {}
+    return true;
+  }
+  function cvBtn(id, ico, label, cls) { return '<button type="button" class="cv-b ' + (cls || '') + '" id="' + id + '"><span>' + ico + '</span><small>' + label + '</small></button>'; }
+  function cvStatus(t) { var el = $('cvSt'); if (el) el.textContent = t; }
+  function cvPeerList() { return CV ? Object.keys(CV.peers).map(function (k) { return CV.peers[k]; }) : []; }
+  function cvDraw() {
+    if (!CV) return;
+    var v = $('callView'), live = CV.st === 'live';
+    v.classList.toggle('video', !!CV.video); v.classList.toggle('live', live); v.classList.toggle('incoming', CV.role === 'in' && !CV.accepted);
+    v.classList.toggle('group', !!CV.group);
+    v.classList.toggle('has-remote', !CV.group && !!(CV.peers.p && CV.peers.p.hasVideo));
+    var b = $('cvBtns');
+    if (CV.role === 'in' && !CV.accepted) b.innerHTML = cvBtn('cvNo', CI.end, ct('decline'), 'red') + cvBtn('cvYes', CV.video ? CI.cam : CI.phone, ct(CV.group ? 'join' : 'accept'), 'green');
+    else b.innerHTML = cvBtn('cvMute', CV.muted ? CI.micOff : CI.mic, ct(CV.muted ? 'unmute' : 'mute'), CV.muted ? 'on' : '') +
+      (CV.video ? cvBtn('cvCam', CV.camOff ? CI.camOff : CI.cam, ct('cam'), CV.camOff ? 'on' : '') + cvBtn('cvFlip', CI.flip, ct('flip')) :
+        (!CV.group && CV.st === 'live' ? cvBtn('cvVid', CI.cam, ct('video')) : '') + (NAT.on ? '' : cvBtn('cvEar', CI.ear, ct('ear')))) +
+      (NAT.on ? cvBtn('cvSpk', CI.spk, ct('speaker'), CV.spk ? 'on' : '') : '') + cvBtn('cvEnd', CI.end, ct('end'), 'red');
+    var on = function (id, f) { var x = $(id); if (x) x.onclick = f; };
+    on('cvNo', function () { cvSend({ type: 'tem-call-decline' }); cvStop(ct('declined')); });
+    on('cvYes', function () { cvAccept(); });
+    on('cvEnd', function () { cvBye(); cvSend({ type: 'tem-call-hangup' }); cvStop(ct('ended')); });
+    on('cvMute', function () { CV.muted = !CV.muted; cvTracks('audio', !CV.muted); cvCtlAll('mute:' + (CV.muted ? 1 : 0)); cvDraw(); });
+    on('cvCam', function () { CV.camOff = !CV.camOff; cvTracks('video', !CV.camOff); $('cvLocal').classList.toggle('off', CV.camOff); cvCtlAll('cam:' + (CV.camOff ? 0 : 1)); cvDraw(); });
+    on('cvFlip', function () { cvFlip(); });
+    on('cvVid', function () { cvToVideo(); });
+    on('cvSpk', function () { cvRoute(!CV.spk); cvDraw(); });
+    on('cvEar', function () { var dk = $('cvDark'); dk.textContent = ct('earHint'); dk.classList.remove('hidden'); });
+    cvPeerUi();
+  }
+  /* the other person's state (muted / camera off) and, in a group, everyone in the call */
+  function cvPeerUi() {
+    if (!CV) return;
+    var ps = cvPeerList(), el = $('cvPeer');
+    if (!CV.group) {
+      var p = CV.peers.p, bits = [];
+      if (p && p.muted) bits.push('🔇 ' + ct('muted'));
+      if (p && CV.video && p.camOff) bits.push('📷 ' + ct('camOff'));
+      el.textContent = bits.join(' • ');
+      return;
+    }
+    if (CV.st === 'live') cvStatus(ct('people', ps.filter(function (x) { return x.connected; }).length + 1));
+    var g = $('cvGrid');
+    ps.forEach(function (p) {
+      var t = $('cvt_' + p.id);
+      if (!t) {
+        t = document.createElement('div'); t.className = 'cv-tile'; t.id = 'cvt_' + p.id;
+        t.innerHTML = '<video playsinline autoplay muted></video><span class="cv-ini"></span><b></b><i></i>';
+        g.appendChild(t);
+      }
+      t.querySelector('.cv-ini').textContent = String(p.ini || p.name || '?').slice(0, 2).toUpperCase();
+      t.querySelector('b').textContent = p.name || '';
+      t.querySelector('i').textContent = (p.muted ? '🔇' : '') + (p.connected ? '' : ' …');
+      t.classList.toggle('has-video', !!p.hasVideo && !p.camOff);
+    });
+    Array.prototype.forEach.call(g.children, function (t) { if (!CV.peers[t.id.slice(4)]) t.remove(); });
+    g.setAttribute('data-n', String(ps.length));
+  }
+  /* 1.1.40: while talking the buttons hide after 5 s; a tap anywhere brings them back (and the tap does nothing else) */
+  function cvIdleArm() {
+    var c = CV, v = $('callView'); if (!c) return;
+    clearTimeout(c.idleT); v.classList.remove('cv-idle');
+    /* 1.1.44: only a video call hides them (a voice call keeps its buttons: a tap on "End" always ends at once) */
+    if (c.st === 'live' && c.video && !(c.role === 'in' && !c.accepted)) c.idleT = setTimeout(function () { if (CV === c && c.st === 'live' && c.video) v.classList.add('cv-idle'); }, 5000);
+  }
+  $('callView').addEventListener('pointerdown', function (e) {
+    var v = $('callView');
+    if (!CV) return;
+    /* only the tap that brings the buttons back is swallowed, the next tap works at once */
+    v.__eat = v.classList.contains('cv-idle');
+    if (v.__eat) { e.preventDefault(); e.stopPropagation(); }
+    cvIdleArm();
+  }, true);
+  $('callView').addEventListener('click', function (e) { var v = $('callView'); if (v.__eat) { v.__eat = false; e.preventDefault(); e.stopPropagation(); } }, true);
+  /* 1.1.44: a tap on "Call ended" closes it at once */
+  $('callView').addEventListener('click', function (e) {
+    var v = $('callView');
+    /* not the tap on End itself (it shows "Call ended" first) */
+    if (CV || !v.classList.contains('ended') || Date.now() - (v.__endT || 0) < 350 || (e.target && e.target.closest && e.target.closest('.cv-b'))) return;
+    CV_END++; v.classList.add('hidden'); v.classList.remove('ended', 'closing');
+  });
+  function cvHint(t) {
+    var v = $('callView'), h = $('cvHint');
+    if (!h) { h = document.createElement('div'); h.id = 'cvHint'; h.className = 'cv-hint'; v.appendChild(h); }
+    h.textContent = t; h.classList.remove('hidden');
+    clearTimeout(cvHint.t); cvHint.t = setTimeout(function () { h.classList.add('hidden'); }, 3500);
+  }
+  /* 1.1.40: a voice call becomes a video call: the camera is added and the two phones agree on it over their own
+     direct line (no server); the other person sees you at once and can turn on their camera too */
+  function cvToVideo() {
+    var c = CV, p = c && c.peers.p;
+    if (!c || c.group || c.video || c.vidBusy || !p || !p.dc || p.dc.readyState !== 'open') return;
+    c.vidBusy = true;
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } } }).then(function (st) {
+      if (CV !== c) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
+      var vt = st.getVideoTracks()[0];
+      c.local.addTrack(vt); c.video = true; c.camOff = false; c.facing = 'user';
+      var lv = $('cvLocal'); lv.srcObject = c.local; lv.classList.remove('off', 'back'); lv.play().catch(function () {});
+      var tr = p.pc.getTransceivers().filter(function (t) { return t.receiver && t.receiver.track && t.receiver.track.kind === 'video' && !(t.sender && t.sender.track); })[0];
+      if (tr) { tr.sender.replaceTrack(vt); try { tr.direction = 'sendrecv'; } catch (e) {} } else p.pc.addTrack(vt, c.local);
+      /* like a video call: the loudspeaker (Android: also the loudspeaker's microphone device) */
+      c.spk = true; if (NAT.on) natSend({ t: 'call', st: 'live', video: true });
+      audSwitch(c, true);
+      cvDraw(); cvRenego(p); cvIdleArm();
+    }).catch(function () { cvHint(ct('nomedia')); }).then(function () { c.vidBusy = false; });
+  }
+  function cvRenego(p) {
+    var pc = p.pc;
+    if (pc.signalingState !== 'stable') { p.renegLater = true; return; }
+    pc.createOffer().then(function (o) { return pc.setLocalDescription(o); })
+      .then(function () { try { p.dc.send('sdp:' + JSON.stringify({ type: 'offer', sdp: pc.localDescription.sdp })); } catch (e) {} }).catch(function () {});
+  }
+  function cvSdp(p, d) {
+    var c = CV, pc = p.pc, polite = c.role === 'in';
+    if (!d || typeof d.sdp !== 'string') return;
+    if (d.type === 'offer') {
+      var glare = pc.signalingState !== 'stable';
+      /* both pressed at the same moment: the caller's offer wins, the other phone offers again right after */
+      if (glare && !polite) return;
+      (glare ? pc.setLocalDescription({ type: 'rollback' }).then(function () { p.renegLater = true; }) : Promise.resolve())
+        .then(function () { return pc.setRemoteDescription({ type: 'offer', sdp: cvOpus(d.sdp) }); })
+        .then(function () { return pc.createAnswer(); }).then(function (a) { return pc.setLocalDescription(a); })
+        .then(function () {
+          try { p.dc.send('sdp:' + JSON.stringify({ type: 'answer', sdp: pc.localDescription.sdp })); } catch (e) {}
+          if (p.renegLater) { p.renegLater = false; setTimeout(function () { if (CV === c) cvRenego(p); }, 150); }
+        }).catch(function () {});
+    } else if (d.type === 'answer' && pc.signalingState === 'have-local-offer') {
+      pc.setRemoteDescription({ type: 'answer', sdp: cvOpus(d.sdp) }).then(function () { if (p.renegLater) { p.renegLater = false; cvRenego(p); } }).catch(function () {});
+    }
+  }
+  function cvTracks(kind, en) { if (CV && CV.local) CV.local.getTracks().forEach(function (t) { if (t.kind === kind) t.enabled = en; }); }
+  function cvCtlAll(msg) { cvPeerList().forEach(function (p) { try { if (p.dc && p.dc.readyState === 'open') p.dc.send(msg); } catch (e) {} }); }
+  function cvBye() { cvCtlAll('bye'); }
+  /* ringing sounds here (Android); on iPhone the app itself rings (it was allowed to play sound by your taps) */
+  function cvTone(kind) {
+    cvToneStop();
+    if (kind === 'in' && navigator.vibrate) { try { navigator.vibrate([400, 250, 400]); } catch (e) {} CV.vib = setInterval(function () { try { navigator.vibrate([400, 250, 400]); } catch (e) {} }, 2000); }
+    if (CV.ringApp) return;
+    /* 1.1.39: inside our Android app the "calling…" tone comes from the app on the call's own sound line: the earpiece for a
+       voice call (it was the loudspeaker), the loudspeaker for a video call */
+    if (kind === 'out' && NAT.on && NAT.tone) { CV.natTone = true; natSend({ t: 'tone', kind: 'out' }); return; }
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      var ac = CV.ac || (CV.ac = new AC());
+      if (ac.state === 'suspended' && ac.resume) ac.resume().catch(function () {});
+      var beep = function () {
+        if (!CV || !CV.tone) return;
+        var t = ac.currentTime, g = ac.createGain(); g.connect(ac.destination);
+        var notes = kind === 'in' ? [784, 988, 1175, 988] : [425];
+        notes.forEach(function (hz, i) {
+          var o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = hz; o.connect(g);
+          var s = t + (kind === 'in' ? i * 0.16 : 0); o.start(s); o.stop(s + (kind === 'in' ? 0.15 : 1));
+        });
+        /* 1.1.46: the calling tone fades in and out softly (no click at its start / end) */
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(kind === 'in' ? 0.22 : 0.12, t + (kind === 'in' ? 0.02 : 0.06));
+        g.gain.setValueAtTime(kind === 'in' ? 0.22 : 0.12, t + (kind === 'in' ? 0.62 : 0.9)); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'in' ? 0.7 : 1.0));
+      };
+      CV.tone = setInterval(beep, kind === 'in' ? 1600 : 3000); beep();
+    } catch (e) { /* silent ring */ }
+  }
+  function cvToneStop() {
+    if (!CV) return;
+    clearInterval(CV.tone); CV.tone = null; clearInterval(CV.vib); CV.vib = null; try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
+    if (CV.natTone) { CV.natTone = false; natSend({ t: 'tone', kind: '' }); }
+    /* inside the Android app: let the ringing sound line go (an open "media" sound line can pull the call to the
+       loudspeaker). 1.1.47: not on iPhone: closing it made the iPhone's call engine set up the sound again right when
+       the call connected (a short burst on the loudspeaker); it is closed when the call ends */
+    if (NAT.on && CV.ac && NAT.platform !== 'ios') { try { CV.ac.close(); } catch (e) {} CV.ac = null; }
+  }
+  function cvOpen(src, org, d) {
+    try { if (VP) $('vpVid').pause(); } catch (e) {}
+    var w0 = CV ? CV.wake0 : WAKE.want;
+    if (CV) cvStop('', true);
+    WAKE.want = w0;
+    CV = { src: src, org: org, role: d.role === 'in' ? 'in' : 'out', video: !!d.video, group: !!d.group, txt: d.txt && typeof d.txt === 'object' ? d.txt : {}, st: 'ring',
+      accepted: d.role !== 'in', t0: 0, peers: {}, ringApp: !!d.ringApp };
+    cvSend({ type: 'tem-call-ack' });
+    var av = $('cvAv'), photo = /^data:image\/(jpeg|png|webp);base64,/.test(String(d.photo || '')) ? d.photo : '';
+    av.style.background = /^#[0-9a-f]{3,8}$/i.test(String(d.color || '')) ? d.color : '#2563eb';
+    av.innerHTML = photo ? '<img alt="" src="' + photo + '">' : '';
+    if (!photo) av.textContent = String(d.ini || '?').slice(0, 3);
+    /* 1.1.40: the background takes the person's colour (and their photo, softly blurred) */
+    var bg = $('cvBg'); bg.style.setProperty('--cv-c', av.style.background || '#2563eb');
+    $('cvBgImg').style.backgroundImage = photo ? 'url("' + photo + '")' : ''; bg.classList.toggle('photo', !!photo);
+    $('cvName').textContent = String(d.name || '').slice(0, 60);
+    cvStatus(CV.role === 'in' ? (CV.group ? ct('inGroup') : ct(CV.video ? 'inVideo' : 'inVoice')) : ct('calling'));
+    $('cvTime').textContent = ''; $('cvPeer').textContent = ''; $('cvGrid').innerHTML = '';
+    $('cvLocal').classList.remove('off');
+    $('cvDark').classList.add('hidden');
+    var v = $('callView');
+    v.classList.remove('hidden', 'closing', 'opening', 'ended'); CV_END++; void v.offsetWidth; v.classList.add('opening');
+    var myOpen = CV_END; setTimeout(function () { if (myOpen === CV_END) v.classList.remove('opening'); }, 900);
+    cvDraw();
+    CV.wake0 = WAKE.want; WAKE.want = true; wakeApply();
+    /* 1.1.39: our app sets the earpiece (voice) / loudspeaker (video) first, then the ringing tone and the microphone start */
+    if (CV.role === 'out') natEarly(CV);
+    /* the caller's camera / microphone start at once (asked while the other phone rings).
+       1.1.46: the "calling…" tone starts once the microphone and the call's sound route are set up: started before,
+       it began on the loudspeaker and jumped to the earpiece when the microphone opened (a loud burst, crackles) */
+    if (CV.role === 'out') {
+      var co = CV;
+      cvMedia().then(function () {
+        setTimeout(function () { if (CV === co && co.st === 'ring' && !co.toneDone) cvTone('out'); }, NAT.on && NAT.platform === 'ios' ? 400 : 150);
+      }).catch(function () {});
+    } else cvTone(CV.role);
+  }
+  /* ===== 1.1.46: earpiece or loudspeaker inside our Android app =====
+     The web view (Chromium) routes the WHOLE call by the microphone "device" that is opened: the default microphone
+     means the loudspeaker (when no headset is connected), its "Headset earpiece" device the earpiece, its
+     "Speakerphone" device the loudspeaker. So a voice call opens the earpiece device and the 🔊 button opens the other
+     one; the web view then keeps that route itself (before, it put the loudspeaker back and the app moved it to the
+     earpiece again: loud bursts and crackles). Group voice calls too (the app puts them on the earpiece once they are
+     connected). The device ids are kept for the next call. iPhone: the app sets it. */
+  var AUD = { ear: '', spk: '' };
+  try { var aud0 = JSON.parse(localStorage.getItem('tem_aud') || '{}') || {}; AUD.ear = String(aud0.ear || '').slice(0, 200); AUD.spk = String(aud0.spk || '').slice(0, 200); } catch (e) {}
+  function audOn() { return NAT.on && NAT.platform === 'android' && !!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices); }
+  function audBase() { return { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: { ideal: 1 } }; }
+  function audIs(t, spk) { var l = String((t && t.label) || ''); return spk ? /speaker/i.test(l) : /earpiece/i.test(l); }
+  function audFind() {
+    return navigator.mediaDevices.enumerateDevices().then(function (list) {
+      var ins = list.filter(function (d) { return d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications'; });
+      var ear = ins.filter(function (d) { return /earpiece/i.test(d.label); })[0], spk = ins.filter(function (d) { return /speaker/i.test(d.label); })[0];
+      if (ear) AUD.ear = ear.deviceId; if (spk) AUD.spk = spk.deviceId;
+      try { localStorage.setItem('tem_aud', JSON.stringify(AUD)); } catch (e) {}
+      return AUD;
+    }).catch(function () { return AUD; });
+  }
+  /* the microphone of a new call: the earpiece device for a voice call (kept from the last call when known) */
+  function audCons(c) {
+    var a = audBase();
+    var id = c.spk ? AUD.spk : AUD.ear;
+    if (audOn() && !c.video && id) a.deviceId = { ideal: id };
+    return a;
+  }
+  /* the microphone opened is not the wanted one (first call, or the ids changed): open the right one now, before the
+     call connects, and stop the first */
+  function audFix(c, st) {
+    if (!audOn() || c.video) return Promise.resolve(st);
+    var t0 = st.getAudioTracks()[0], spk = !!c.spk;
+    if (!t0 || audIs(t0, spk)) { if (t0 && !(AUD.ear && AUD.spk)) audFind(); return Promise.resolve(st); }
+    return audFind().then(function () {
+      var id = spk ? AUD.spk : AUD.ear;
+      if (!id || CV !== c) return st;
+      var a = audBase(); a.deviceId = { exact: id };
+      return navigator.mediaDevices.getUserMedia({ audio: a }).then(function (s2) {
+        var t1 = s2.getAudioTracks()[0];
+        if (!t1 || CV !== c) { s2.getTracks().forEach(function (t) { t.stop(); }); return st; }
+        st.removeTrack(t0); t0.stop(); st.addTrack(t1);
+        return st;
+      }, function () { return st; });
+    });
+  }
+  /* 🔊 during the call: switch the microphone device (the web view moves the sound with it) */
+  function audSwitch(c, spk) {
+    if (!audOn() || !c.local) return;
+    var my = c.audN = (c.audN || 0) + 1;
+    (AUD.ear && AUD.spk ? Promise.resolve(AUD) : audFind()).then(function () {
+      var id = spk ? AUD.spk : AUD.ear, old = c.local && c.local.getAudioTracks()[0];
+      if (!id || CV !== c || c.audN !== my || (old && audIs(old, spk))) return;
+      var a = audBase(); a.deviceId = { exact: id };
+      return navigator.mediaDevices.getUserMedia({ audio: a }).then(function (s2) {
+        var t1 = s2.getAudioTracks()[0];
+        if (!t1 || CV !== c || c.audN !== my) { s2.getTracks().forEach(function (t) { t.stop(); }); return; }
+        t1.enabled = !c.muted; try { t1.contentHint = 'speech'; } catch (e) {}
+        return Promise.all(cvPeerList().map(function (p) {
+          var snd = p.pc.getSenders().filter(function (x) { return x.track && x.track.kind === 'audio'; })[0];
+          return snd ? snd.replaceTrack(t1) : null;
+        })).then(function () {
+          if (old) { c.local.removeTrack(old); old.stop(); }
+          c.local.addTrack(t1);
+        });
+      });
+    }).catch(function () { /* the app's own route stays */ });
+  }
+  /* the sound of the call: earpiece or loudspeaker (the app; on Android also the microphone device) */
+  function cvRoute(spk) {
+    var c = CV; if (!c) return;
+    c.spk = !!spk; natSend({ t: 'speaker', on: c.spk });
+    audSwitch(c, c.spk);
+  }
+  function cvMedia() {
+    if (CV.mediaP) return CV.mediaP;
+    var c = CV;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { c.mediaP = Promise.reject(new Error('media')); return c.mediaP; }
+    c.facing = 'user';
+    c.mediaP = navigator.mediaDevices.getUserMedia({
+      /* the phone's echo and noise cancelling, one channel (clearer speech, less hiss); Android: the earpiece device */
+      audio: audCons(c),
+      video: c.video ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } } : false
+    }).then(function (st) {
+      if (CV !== c) { st.getTracks().forEach(function (t) { t.stop(); }); throw new Error('gone'); }
+      return audFix(c, st);
+    }).then(function (st) {
+      if (CV !== c) { st.getTracks().forEach(function (t) { t.stop(); }); throw new Error('gone'); }
+      c.local = st;
+      st.getAudioTracks().forEach(function (t) { try { t.contentHint = 'speech'; } catch (e) {} });
+      if (c.video) { var lv = $('cvLocal'); lv.srcObject = st; lv.play().catch(function () {}); }
+      return st;
+    });
+    c.mediaP.catch(function (e) { if (CV === c && e && e.message !== 'gone') { cvSend({ type: 'tem-call-fail', err: 'media' }); cvStop(ct('nomedia')); } });
+    return c.mediaP;
+  }
+  function cvNewPeer(id, name, ice, ini) {
+    var c = CV, old = c.peers[id];
+    if (old) cvPeerGone(id, true);
+    var servers = (Array.isArray(ice) ? ice : []).filter(function (s) { return s && s.urls; }).slice(0, 6);
+    var p = { id: id, name: name || '', ini: ini || '', pc: new RTCPeerConnection({ iceServers: servers, bundlePolicy: 'max-bundle' }), connected: false, ice: servers };
+    c.peers[id] = p;
+    c.local.getTracks().forEach(function (t) { p.pc.addTrack(t, c.local); });
+    /* a small direct line next to the call: "I hung up", "muted", "camera off" arrive at once (no server round trip) */
+    try {
+      p.dc = p.pc.createDataChannel('ctl', { negotiated: true, id: 0 }); p.dc.onmessage = function (e) { cvCtl(p, String(e.data || '')); };
+      p.dc.onopen = function () {
+        if (c.muted) p.dc.send('mute:1'); if (c.video && c.camOff) p.dc.send('cam:0');
+        /* this line opens on both phones at the same moment: the call time starts here, and the caller sends
+           its time once more so both screens show the same seconds */
+        if (!c.group && CV === c) {
+          cvClock(Date.now());
+          if (c.role === 'out') setTimeout(function () { try { if (CV === c && p.dc.readyState === 'open') p.dc.send('clk:' + (Date.now() - c.t0)); } catch (er) {} }, 700);
+        }
+      };
+    } catch (e) { p.dc = null; }
+    p.pc.ontrack = function (e) {
+      /* 1.1.44: the phone chooses the voice buffer itself again (the smallest buffer of 1.1.38 made crackles on a weak line) */
+      if (CV !== c || c.peers[id] !== p) return;
+      var st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
+      if (e.track.kind === 'video') {
+        p.hasVideo = true;
+        /* the picture only — the sound plays once, from its own player (playing it twice made an echo / hiss) */
+        var rv = c.group ? (function () { cvPeerUi(); var t = $('cvt_' + id); return t && t.querySelector('video'); })() : $('cvRemote');
+        if (rv) { rv.muted = true; rv.srcObject = st; rv.play().catch(function () {}); }
+        if (!c.group && !c.video && c.st === 'live') cvHint('📹 ' + ct('camOn', $('cvName').textContent || ''));
+        cvDraw(); cvIdleArm();
+      } else {
+        var au = c.group ? cvPeerAudio(id) : $('cvAudio');
+        if (au.srcObject !== st) { au.srcObject = st; au.play().catch(function () {}); if (c.group) cvSpeakWatch(id, st); }
+        if (NAT.on && c.natOn) setTimeout(function () { if (CV === c) natSend({ t: 'call', st: 'live', video: !!c.video }); }, 250);
+      }
+    };
+    p.pc.onconnectionstatechange = function () {
+      if (CV !== c || c.peers[id] !== p) return;
+      var s = p.pc.connectionState;
+      if (s === 'connected') { p.connected = true; cvVoiceFirst(p); cvLive(); cvPeerUi(); }
+      else if (s === 'disconnected') { if (!c.group) cvStatus(ct('reconnecting')); p.connected = false; cvPeerUi(); }
+      else if (s === 'failed') {
+        if (!c.group) { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); }
+        else { cvSend({ type: 'tem-call-peer-fail', peer: id }); cvPeerGone(id); }
+      }
+    };
+    p.pc.oniceconnectionstatechange = function () { if (CV === c && c.peers[id] === p && (p.pc.iceConnectionState === 'connected' || p.pc.iceConnectionState === 'completed')) { p.connected = true; cvLive(); cvPeerUi(); } };
+    return p;
+  }
+  function cvSpeakWatch(id, stream) {
+    var c = CV; if (!c || !c.group) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      var ac = c.mac || (c.mac = new AC());
+      if (ac.state === 'suspended' && ac.resume) ac.resume().catch(function () {});
+      var p = c.peers[id]; if (!p) return;
+      var an = ac.createAnalyser(); an.fftSize = 512; ac.createMediaStreamSource(stream).connect(an); p.an = an;
+      if (c.spkT) return;
+      var buf = new Uint8Array(512);
+      c.spkT = setInterval(function () {
+        if (CV !== c) return;
+        cvPeerList().forEach(function (q) {
+          if (!q.an) return;
+          q.an.getByteTimeDomainData(buf);
+          var mx = 0; for (var i = 0; i < buf.length; i += 2) mx = Math.max(mx, Math.abs(buf[i] - 128));
+          q.lvl = Math.max(mx, (q.lvl || 0) * 0.6);
+          var t = $('cvt_' + q.id); if (t) t.classList.toggle('speaking', q.lvl > 9 && !q.muted);
+        });
+      }, 160);
+    } catch (e) { /* no ring: the call still works */ }
+  }
+  function cvPeerAudio(id) {
+    var a = $('cva_' + id);
+    if (!a) { a = document.createElement('audio'); a.id = 'cva_' + id; a.autoplay = true; a.setAttribute('playsinline', ''); $('cvAudios').appendChild(a); }
+    return a;
+  }
+  function cvCtl(p, m) {
+    var c = CV; if (!c) return;
+    if (m === 'bye') {
+      if (!c.group) { cvSend({ type: 'tem-call-remote-end' }); cvStop(ct('ended')); }
+      else { cvSend({ type: 'tem-call-peer-left', peer: p.id }); cvPeerGone(p.id); }
+      return;
+    }
+    if (m.indexOf('sdp:') === 0) { try { cvSdp(p, JSON.parse(m.slice(4))); } catch (e) {} return; }
+    var k = m.split(':');
+    if (k[0] === 'clk' && !c.group && c.role === 'in') { var ms = Number(k[1]); if (ms >= 0 && ms < 600000) cvClock(Date.now() - ms); return; }
+    if (k[0] === 'mute') p.muted = k[1] === '1';
+    if (k[0] === 'cam') p.camOff = k[1] === '0';
+    cvPeerUi();
+  }
+  function cvPeerGone(id, quiet) {
+    var c = CV; if (!c) return;
+    var p = c.peers[id]; if (!p) return;
+    delete c.peers[id];
+    try { p.pc.close(); } catch (e) {}
+    var a = $('cva_' + id); if (a) { a.srcObject = null; a.remove(); }
+    var t = $('cvt_' + id); if (t) t.remove();
+    if (!quiet) cvPeerUi();
+  }
+  /* 1.1.47: clearer voice on a weak line. The other phone's description tells this phone how to send its voice
+     (Opus): ask for the built-in repair of lost pieces (in-band FEC), no silence gaps (DTX off), mono, and a little
+     more quality (40 kbit/s instead of 32). Only the voice line (opus) is touched. */
+  function cvOpus(sdp) {
+    try {
+      var m = /a=rtpmap:(\d+) opus\/48000[^\r\n]*/i.exec(sdp); if (!m) return sdp;
+      var pt = m[1], re = new RegExp('a=fmtp:' + pt + ' ([^\r\n]*)');
+      var want = { useinbandfec: '1', usedtx: '0', stereo: '0', 'sprop-stereo': '0', maxaveragebitrate: '40000' };
+      var f = re.exec(sdp);
+      if (!f) return sdp.replace(m[0], m[0] + '\r\na=fmtp:' + pt + ' ' + Object.keys(want).map(function (k) { return k + '=' + want[k]; }).join(';'));
+      var have = {}, order = [];
+      f[1].split(';').forEach(function (kv) { var p = kv.split('='), k = String(p[0] || '').trim(); if (!k) return; if (!(k in have)) order.push(k); have[k] = String(p.slice(1).join('=')).trim(); });
+      Object.keys(want).forEach(function (k) { if (!(k in have)) order.push(k); have[k] = want[k]; });
+      return sdp.replace(f[0], 'a=fmtp:' + pt + ' ' + order.map(function (k) { return k + '=' + have[k]; }).join(';'));
+    } catch (e) { return sdp; }
+  }
+  /* 1.1.47: the voice goes first on a busy Wi-Fi (marked as voice, sent before other data) */
+  function cvVoiceFirst(p) {
+    try {
+      p.pc.getSenders().forEach(function (s) {
+        if (!s.track || s.track.kind !== 'audio' || !s.getParameters || !s.setParameters) return;
+        var prm = s.getParameters();
+        if (!prm.encodings || !prm.encodings.length) return;
+        prm.encodings.forEach(function (en) { en.priority = 'high'; en.networkPriority = 'high'; });
+        s.setParameters(prm).catch(function () {});
+      });
+    } catch (e) {}
+  }
+  /* no trickle: wait until the phone has found its addresses, then send one description.
+     It stops early once the useful addresses are there (a relay, or the public address when there is no relay) */
+  function cvGather(pc, ice) {
+    var turn = (ice || []).some(function (s) { return [].concat(s.urls).some(function (u) { return /^turns?:/.test(String(u)); }); });
+    return new Promise(function (ok) {
+      if (pc.iceGatheringState === 'complete') return ok();
+      var done = false, early = null, fin = function () { if (!done) { done = true; clearTimeout(cap); clearTimeout(early); ok(); } };
+      var cap = setTimeout(fin, turn ? 2500 : 1800);
+      pc.addEventListener('icecandidate', function (e) {
+        if (!e.candidate) return fin();
+        var typ = e.candidate.type || (/ typ (\w+)/.exec(e.candidate.candidate || '') || [])[1];
+        /* 1.1.47: a relay over UDP is the one the voice needs (a relay over TCP / TLS gives crackles when packets get
+           lost): only that one ends the search early */
+        var rp = String(e.candidate.relayProtocol || (/ typ relay/.test(e.candidate.candidate || '') ? e.candidate.protocol || '' : '')).toLowerCase();
+        if (typ === 'relay' && (rp === 'udp' || !rp)) { clearTimeout(early); early = setTimeout(fin, 250); }
+        else if (typ === 'srflx' && !turn && !early) early = setTimeout(fin, 350);
+      });
+      pc.addEventListener('icegatheringstatechange', function () { if (pc.iceGatheringState === 'complete') fin(); });
+    });
+  }
+  function cvFail(c, e) { if (CV === c && e && e.message !== 'media' && e.message !== 'gone') { if (c.group) return; cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); } }
+  /* make an offer to one person (1:1 caller, or a group member who joins later than me) */
+  function cvOffer(peer, name, ice, ini) {
+    var c = CV; if (!c) return;
+    cvMedia().then(function () {
+      var p = cvNewPeer(peer, name, ice, ini);
+      return p.pc.createOffer().then(function (o) { return p.pc.setLocalDescription(o); }).then(function () { return cvGather(p.pc, p.ice); })
+        .then(function () { if (CV === c && c.peers[peer] === p) cvSend({ type: 'tem-call-sig', peer: peer, kind: 'offer', sdp: p.pc.localDescription.sdp }); });
+    }).catch(function (e) { cvFail(c, e); });
+  }
+  function cvAnswerTo(peer, name, ice, offer, ini) {
+    var c = CV; if (!c) return;
+    cvMedia().then(function () {
+      var p = cvNewPeer(peer, name, ice, ini);
+      return p.pc.setRemoteDescription({ type: 'offer', sdp: cvOpus(String(offer || '')) }).then(function () { return p.pc.createAnswer(); })
+        .then(function (a) { return p.pc.setLocalDescription(a); }).then(function () { return cvGather(p.pc, p.ice); })
+        .then(function () { if (CV === c && c.peers[peer] === p) cvSend({ type: 'tem-call-sig', peer: peer, kind: 'answer', sdp: p.pc.localDescription.sdp }); });
+    }).catch(function (e) { cvFail(c, e); });
+  }
+  function cvGo(d) {
+    var c = CV; if (!c) return;
+    c.cid = String(d.cid || '');
+    if (c.group) { cvStatus(ct('connecting')); cvMedia().then(function () { if (CV === c && !c.t0) cvLive(); }).catch(function () {}); return; }
+    if (c.role === 'out') { cvStatus(ct('ringing')); cvOffer('p', '', d.ice); natEarly(c); }
+    else { cvStatus(ct('connecting')); cvAnswerTo('p', '', d.ice, d.offer); }
+  }
+  /* 1.1.37: the earpiece and "screen off at the ear" already while it rings / connects (the phone is at the ear by then) */
+  function natEarly(c) { if (!c || c.natOn || !NAT.on || c.group) return; c.natOn = true; c.spk = !!c.video; natSend({ t: 'call', st: 'live', video: !!c.video }); }
+  function cvAccept() {
+    if (!CV || CV.accepted) return;
+    natSend({ t: 'ringStop' });
+    CV.accepted = true; cvToneStop();
+    /* this tap also lets the phone play the other person's voice */
+    try { if (CV.ac && CV.ac.resume) CV.ac.resume(); $('cvAudio').play().catch(function () {}); } catch (e) {}
+    natEarly(CV);
+    cvStatus(ct('connecting')); cvDraw();
+    cvMedia().catch(function () {});
+    cvSend({ type: 'tem-call-accept' });
+  }
+  function cvAnswer(sdp, peer) {
+    var c = CV, p = c && c.peers[peer || 'p']; if (!p) return;
+    c.toneDone = true; cvToneStop(); if (!c.group) cvStatus(ct('connecting'));
+    p.pc.setRemoteDescription({ type: 'answer', sdp: cvOpus(String(sdp || '')) }).catch(function () { if (!c.group) { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); } else cvPeerGone(peer); });
+  }
+  function cvLive() {
+    var c = CV; if (!c) return;
+    if (c.st === 'live') { if (!c.group) cvStatus(c.timer ? '' : ct('connecting')); return; }
+    c.st = 'live'; c.toneDone = true; cvToneStop();
+    setTimeout(cvIdleArm, 0);
+    if (!c.natOn) { c.spk = !!c.video; c.natOn = !c.group; }
+    /* connected: apply the chosen sound route once more (the person's choice is kept) */
+    if (NAT.on) natSend({ t: 'call', st: 'live', video: !!c.video });
+    cvDraw();
+    cvSend({ type: 'tem-call-state', st: 'live' });
+    /* one-to-one: the time starts when the direct line opens on both phones (see cvNewPeer) */
+    var p = c.peers.p;
+    if (c.group || !p || !p.dc) cvClock(Date.now());
+    else if (!c.timer) { cvStatus(p.dc.readyState === 'open' ? '' : ct('connecting')); setTimeout(function () { if (CV === c && !c.timer) cvClock(Date.now()); }, 6000); }
+  }
+  function cvClock(t0) {
+    var c = CV; if (!c) return;
+    c.t0 = t0;
+    if (!c.group) cvStatus('');
+    var tick = function () { if (CV !== c) return; var s = Math.max(0, Math.floor((Date.now() - c.t0) / 1000)); $('cvTime').textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); };
+    tick();
+    if (!c.timer) c.timer = setInterval(tick, 250);
+  }
+  function cvFlip() {
+    var c = CV; if (!c || !c.local || !c.video) return;
+    var want = c.facing === 'user' ? 'environment' : 'user';
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: want, width: { ideal: 640 }, height: { ideal: 480 } } }).then(function (st) {
+      if (CV !== c) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
+      var nt = st.getVideoTracks()[0], old = c.local.getVideoTracks()[0];
+      Promise.all(cvPeerList().map(function (p) { var snd = p.pc.getSenders().filter(function (s) { return s.track && s.track.kind === 'video'; })[0]; return snd ? snd.replaceTrack(nt) : null; })).then(function () {
+        if (old) { c.local.removeTrack(old); old.stop(); }
+        c.local.addTrack(nt); c.facing = want; nt.enabled = !c.camOff;
+        var lv = $('cvLocal'); lv.srcObject = c.local; lv.classList.toggle('back', want !== 'user'); lv.play().catch(function () {});
+      });
+    }).catch(function () {});
+  }
+  var CV_END = 0, PRE = null;
+  /* 1.1.38: "Answer" on the phone's ringing screen: the call screen shows at once ("Connecting…") while the app
+     opens; the real call takes this screen over a moment later and is accepted by itself */
+  function cvPre(go, name, video) {
+    if (CV) return;
+    var v = $('callView'), my = ++CV_END;
+    PRE = { go: go, t: Date.now(), n: my };
+    v.classList.remove('hidden', 'closing', 'opening', 'ended', 'incoming', 'live', 'group', 'has-remote');
+    v.classList.toggle('video', false); void v.offsetWidth; v.classList.add('opening', 'pre');
+    var av = $('cvAv'); av.style.background = '#2563eb'; av.innerHTML = '';
+    $('cvBg').style.setProperty('--cv-c', '#2563eb'); $('cvBgImg').style.backgroundImage = ''; $('cvBg').classList.remove('photo');
+    av.textContent = (String(name || '?').replace(/[^\p{L}\p{N} ]/gu, '').trim().split(/\s+/).map(function (w) { return w.charAt(0); }).join('').slice(0, 2) || '📞').toUpperCase();
+    $('cvName').textContent = String(name || '').slice(0, 60);
+    cvStatus(CT0.connecting); $('cvTime').textContent = ''; $('cvPeer').textContent = ''; $('cvGrid').innerHTML = '';
+    $('cvBtns').innerHTML = cvBtn('cvPreEnd', CI.end, CT0.end || 'End', 'red');
+    $('cvPreEnd').onclick = function () { if (PRE) PRE.declined = true; cvPreHide(); };
+    setTimeout(function () { if (PRE && PRE.n === my && !CV) cvPreHide(); }, 35000);
+  }
+  setTimeout(function () { if (PRE0 && PENDING_MSG === 'answer' && /^call:/.test(PRE0.go)) { cvPre(PRE0.go, PRE0.name, PRE0.video); fastAnswer(PRE0.go, PRE0.name); } }, 0);
+  function cvPreHide() { if (CV) return; var v = $('callView'); v.classList.add('hidden'); v.classList.remove('pre', 'opening'); }
+  function cvStop(text, quick) {
+    var c = CV; if (!c) return;
+    CV = null;
+    natSend({ t: 'call', st: 'end' });
+    clearInterval(c.timer); clearInterval(c.tone); clearInterval(c.vib); clearInterval(c.spkT); clearTimeout(c.idleT);
+    $('callView').classList.remove('cv-idle'); var hh = $('cvHint'); if (hh) hh.classList.add('hidden');
+    if (FAST && FAST.cid === c.cid) FAST = null;
+    if (c.natTone) natSend({ t: 'tone', kind: '' });
+    try { if (c.mac) c.mac.close(); } catch (e) {}
+    try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
+    Object.keys(c.peers).forEach(function (k) { try { c.peers[k].pc.close(); } catch (e) {} });
+    try { if (c.local) c.local.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    try { if (c.ac) c.ac.close(); } catch (e) {}
+    ['cvRemote', 'cvLocal', 'cvAudio'].forEach(function (id) { try { $(id).srcObject = null; } catch (e) {} });
+    $('cvAudios').innerHTML = ''; $('cvGrid').innerHTML = ''; $('cvDark').classList.add('hidden');
+    WAKE.want = !!c.wake0; wakeApply();
+    var v = $('callView');
+    v.classList.remove('opening');
+    if (quick || !text) { v.classList.add('hidden'); return; }
+    /* 1.1.38: voice and video end the same way: the photo, "Call ended" and how long it lasted */
+    var dur = c.t0 ? Math.max(0, Math.floor((Date.now() - c.t0) / 1000)) : 0;
+    v.classList.remove('video', 'has-remote', 'incoming', 'live', 'group');
+    v.classList.add('ended'); v.__endT = Date.now();
+    cvStatus(text); $('cvTime').textContent = dur ? Math.floor(dur / 60) + ':' + ('0' + dur % 60).slice(-2) : '';
+    $('cvPeer').textContent = ''; $('cvBtns').innerHTML = ''; v.classList.add('closing');
+    var my = ++CV_END;
+    setTimeout(function () { if (!CV && my === CV_END) { v.classList.add('hidden'); v.classList.remove('ended', 'closing'); } }, 1300);
+  }
+  /* ear mode: a black screen while you hold the phone to your ear (no cheek taps); tap twice to light it */
+  (function () {
+    var last = 0;
+    $('cvDark').addEventListener('click', function () { var n = Date.now(); if (n - last < 400) $('cvDark').classList.add('hidden'); last = n; });
+  })();
+  /* ===================== live QR scanner (1.1.38) =====================
+     The app's frame cannot use the camera on every phone, so the launcher scans: the camera opens at once and the
+     code is read by itself (the phone's own reader where there is one, otherwise jsQR). */
+  var QR = null, QR_LIB = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+  function qrLibLoad() {
+    if (window.jsQR) return Promise.resolve();
+    if (qrLibLoad.p) return qrLibLoad.p;
+    qrLibLoad.p = new Promise(function (ok, bad) { var sc = document.createElement('script'); sc.src = QR_LIB; sc.onload = function () { window.jsQR ? ok() : bad(); }; sc.onerror = function () { qrLibLoad.p = null; bad(); }; document.head.appendChild(sc); });
+    return qrLibLoad.p;
+  }
+  function qrOpen(src, org, d) {
+    if (QR) qrClose('');
+    var tx0 = d && d.txt && typeof d.txt === 'object' ? d.txt : {};
+    QR = { src: src, org: org, stream: null, det: null, busy: false, t: null, n: 0 };
+    var q = QR;
+    try { src.postMessage({ type: 'tem-qr-ack' }, org); } catch (e) {}
+    $('qrT').textContent = String(tx0.title || 'Scan QR').slice(0, 40);
+    $('qrHint').textContent = String(tx0.hint || 'Point the camera at the QR code').slice(0, 120);
+    $('qrPick').textContent = '🖼️ ' + String(tx0.pick || 'Pick a photo').slice(0, 40);
+    $('qrWaitT').textContent = String(tx0.wait || 'Opening the camera…').slice(0, 60);
+    var v = $('qrView'); v.classList.remove('hidden', 'found'); v.classList.add('wait');
+    try { if (window.BarcodeDetector) q.det = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { q.det = null; }
+    if (!q.det) qrLibLoad().catch(function () {});
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { qrClose('nocam'); return; }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }).then(function (st) {
+      if (QR !== q) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
+      q.stream = st; var vid = $('qrVid');
+      vid.onplaying = function () { if (QR === q) $('qrView').classList.remove('wait'); };
+      vid.srcObject = st; vid.play().catch(function () {});
+      setTimeout(function () { if (QR === q) $('qrView').classList.remove('wait'); }, 2500);
+      var tr = st.getVideoTracks()[0], caps = tr && tr.getCapabilities ? tr.getCapabilities() : {};
+      $('qrTorch').classList.toggle('off', !(caps && caps.torch));
+      q.t = setInterval(qrTick, 160);
+    }).catch(function (er) { qrClose(er && er.name === 'NotAllowedError' ? 'denied' : 'nocam'); });
+  }
+  function qrTick() {
+    var q = QR; if (!q || q.busy) return;
+    var vid = $('qrVid'); if (!vid.videoWidth) return;
+    q.busy = true;
+    var done = function (txt) { q.busy = false; if (txt && QR === q) qrFound(txt); };
+    if (q.det) { q.det.detect(vid).then(function (l) { done(l && l[0] && l[0].rawValue); }).catch(function () { q.det = null; done(''); }); return; }
+    if (!window.jsQR) { q.busy = false; return; }
+    var c = $('qrCv'), w = Math.min(960, vid.videoWidth), h = Math.round(vid.videoHeight * w / vid.videoWidth);
+    c.width = w; c.height = h;
+    var g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(vid, 0, 0, w, h);
+    var r = null; try { r = window.jsQR(g.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: (q.n++ % 2) ? 'invertFirst' : 'dontInvert' }); } catch (e) {}
+    done(r && r.data);
+  }
+  function qrFound(txt) {
+    $('qrView').classList.add('found');
+    try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
+    var q = QR;
+    setTimeout(function () { if (QR === q) qrClose('', String(txt).slice(0, 500)); }, 220);
+  }
+  function qrClose(err, text) {
+    var q = QR; if (!q) return;
+    QR = null; clearInterval(q.t);
+    try { if (q.stream) q.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    $('qrVid').srcObject = null; $('qrView').classList.add('hidden');
+    try { q.src.postMessage({ type: 'tem-qr-res', text: text || '', err: err || '' }, q.org); } catch (e) {}
+  }
+  $('qrX').onclick = function () { qrClose('cancel'); };
+  $('qrPick').onclick = function () { qrClose('pick'); };
+  $('qrTorch').onclick = function () {
+    var q = QR, tr = q && q.stream && q.stream.getVideoTracks()[0]; if (!tr) return;
+    q.torch = !q.torch; tr.applyConstraints({ advanced: [{ torch: q.torch }] }).catch(function () {});
+  };
+  /* ===================== chat videos (1.1.35) =====================
+     A video plays here, full screen, while it downloads: the service worker asks this page for each piece the
+     player needs, this page asks the app, and the app fetches 1 MB parts from Google Drive (several at a time).
+     Without a service worker the whole video is fetched first (with a progress number). */
+  var VP = null, VPREQ = {}, VPN = 0;
+  function vpOpen(src, org, d) {
+    var id = String(d.id || '').slice(0, 60);
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) return;
+    if (VP) vpClose(true);
+    try { src.postMessage({ type: 'tem-video-ack', id: id }, org); } catch (e) {}
+    var name = String(d.name || 'video.mp4').replace(/[^\w.\- ]/g, '_').slice(0, 80) || 'video.mp4';
+    VP = { src: src, org: org, id: id, sid: 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), name: name,
+      size: Number(d.size) || 0, mime: /^video\/[\w.+-]+$/.test(String(d.mime || '')) ? String(d.mime) : 'video/mp4', txt: d.txt && typeof d.txt === 'object' ? d.txt : {}, urls: [], played: false, mode: '' };
+    var v = $('vpVid'), el = $('vpView');
+    $('vpT').textContent = String(d.title || '').slice(0, 60);
+    $('vpS').textContent = String(d.sub || '').slice(0, 60);
+    var cap = String(d.cap || '').slice(0, 400); $('vpCap').textContent = cap; $('vpCap').classList.toggle('hidden', !cap);
+    $('vpSave').title = String(VP.txt.save || 'Save').slice(0, 40); $('vpFs').title = String(VP.txt.full || 'Full screen').slice(0, 40); $('vpX').title = String(VP.txt.close || 'Close').slice(0, 40);
+    if (typeof Blob !== 'undefined' && d.poster instanceof Blob && /^image\//.test(d.poster.type || 'image/jpeg')) { var pu = URL.createObjectURL(d.poster); VP.urls.push(pu); v.poster = pu; }
+    else if (/^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(String(d.posterUrl || ''))) v.poster = d.posterUrl;
+    else v.removeAttribute('poster');
+    el.classList.remove('hidden', 'closing', 'bare', 'opening'); void el.offsetWidth; el.classList.add('opening');
+    vpLoading(true, '');
+    try { history.pushState({ tvp: VP.sid }, ''); VP.hist = true; } catch (e) {}
+    /* streaming needs this page to be run by the service worker */
+    if (navigator.serviceWorker && navigator.serviceWorker.controller && window.ReadableStream) { VP.mode = 'stream'; v.src = '__vs/' + VP.sid + '/' + encodeURIComponent(name); }
+    else vpBlob();
+    var p = v.play(); if (p && p.catch) p.catch(function () {});
+  }
+  function vpLoading(on, t) { $('vpLoad').classList.toggle('hidden', !on); $('vpLoadT').textContent = t || ''; }
+  function vpProg(p) { if (VP && VP.mode === 'blob') vpLoading(true, String(VP.txt.load || 'Loading video').replace(/\s*$/, '') + ' ' + Math.round(p * 100) + '%'); }
+  /* the whole video first (older phones, or when streaming did not work) */
+  function vpBlob(save) {
+    if (!VP) return;
+    if (save) VP.saveAfter = true;
+    if (VP.blob) { vpBlobRes({ ok: true, blob: VP.blob }); return; }
+    if (VP.asked) return;
+    VP.asked = true;
+    if (!save) { VP.mode = 'blob'; vpProg(0); }
+    try { VP.src.postMessage({ type: 'tem-vblob', id: VP.id }, VP.org); } catch (e) {}
+  }
+  function vpBlobRes(d) {
+    if (!VP) return;
+    VP.asked = false;
+    if (!d.ok || !(d.blob instanceof Blob)) { vpLoading(false); return; }
+    VP.blob = d.blob;
+    if (VP.mode === 'blob') {
+      var v = $('vpVid'), u = URL.createObjectURL(d.blob); VP.urls.push(u);
+      v.src = u; var p = v.play(); if (p && p.catch) p.catch(function () {});
+      vpLoading(false);
+    }
+    if (VP.saveAfter) { VP.saveAfter = false; saveMedia(d.blob, VP.name, true, function () {}); }
+  }
+  /* the service worker wants bytes off … off+len-1: ask the app */
+  function vpServe(d, port) {
+    if (!VP || VP.sid !== d.sid) { try { port.postMessage({ ok: false, err: 'gone' }); } catch (e) {} return; }
+    var rid = 'r' + (++VPN);
+    VPREQ[rid] = { port: port, t: setTimeout(function () { var r = VPREQ[rid]; delete VPREQ[rid]; if (r) try { r.port.postMessage({ ok: false, err: 'timeout' }); } catch (e) {} }, 40000) };
+    try { VP.src.postMessage({ type: 'tem-vr', rid: rid, id: VP.id, off: Math.max(0, Math.floor(Number(d.off) || 0)), len: Math.max(1, Math.min(2097152, Math.floor(Number(d.len) || 1048576))) }, VP.org); }
+    catch (e) { clearTimeout(VPREQ[rid].t); delete VPREQ[rid]; try { port.postMessage({ ok: false, err: 'app' }); } catch (er) {} }
+  }
+  function vpRes(d) {
+    var r = VPREQ[String(d.rid || '')]; if (!r) return;
+    delete VPREQ[String(d.rid)]; clearTimeout(r.t);
+    var buf = d.buf instanceof ArrayBuffer ? d.buf : null;
+    if (d.ok && VP && Number(d.size) > 0) VP.size = Number(d.size);
+    try { if (d.ok && buf) r.port.postMessage({ ok: true, buf: buf, size: Number(d.size) || 0, mime: VP ? VP.mime : String(d.mime || 'video/mp4') }, [buf]); else r.port.postMessage({ ok: false, err: String(d.err || 'no data').slice(0, 80) }); } catch (e) {}
+  }
+  function vpClose(quick) {
+    if (!VP) return;
+    var vp = VP, v = $('vpVid'), el = $('vpView');
+    VP = null;
+    Object.keys(VPREQ).forEach(function (k) { clearTimeout(VPREQ[k].t); try { VPREQ[k].port.postMessage({ ok: false, err: 'gone' }); } catch (e) {} delete VPREQ[k]; });
+    try { v.pause(); } catch (e) {}
+    var done = function () { try { v.removeAttribute('src'); v.load(); } catch (e) {} vp.urls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} }); el.classList.add('hidden'); el.classList.remove('closing'); };
+    try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {}); } catch (e) {}
+    if (vp.hist && !vp.popped) { vp.closing = true; try { history.back(); } catch (e) {} }
+    if (quick) done(); else { el.classList.remove('opening'); el.classList.add('closing'); setTimeout(done, 200); }
+  }
+  (function () {
+    var v = $('vpVid'), el = $('vpView');
+    v.addEventListener('playing', function () { if (VP) { VP.played = true; vpLoading(false); } });
+    v.addEventListener('canplay', function () { if (VP && VP.mode === 'stream') vpLoading(false); });
+    v.addEventListener('waiting', function () { if (VP && VP.mode === 'stream') vpLoading(true, ''); });
+    /* streaming failed (this phone's browser could not read it that way): fetch the whole video instead */
+    v.addEventListener('error', function () { if (VP && VP.mode === 'stream' && !VP.played) { VP.mode = 'blob'; v.removeAttribute('src'); vpBlob(); } });
+    $('vpX').addEventListener('click', function () { vpClose(); });
+    $('vpSave').addEventListener('click', function () { if (!VP) return; if (VP.blob) saveMedia(VP.blob, VP.name, true, function () {}); else { vpLoading(true, ''); vpBlob(true); } });
+    $('vpFs').addEventListener('click', function () {
+      try {
+        if (v.requestFullscreen) v.requestFullscreen().then(function () { try { if (v.videoWidth > v.videoHeight && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {}); } catch (e) {} }).catch(function () {});
+        else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+      } catch (e) {}
+    });
+    window.addEventListener('popstate', function () { if (VP && !VP.closing) { VP.popped = true; vpClose(); } });
+    document.addEventListener('keydown', function (e) { if (VP && e.key === 'Escape') vpClose(); });
+    /* drag down to close; a tap on the picture shows / hides the bar */
+    var y0 = null, x0 = 0, t0 = 0;
+    el.addEventListener('pointerdown', function (e) { if (!VP || e.target.closest('.vp-top') || e.clientY > window.innerHeight - 90) { y0 = null; return; } y0 = e.clientY; x0 = e.clientX; t0 = Date.now(); });
+    el.addEventListener('pointermove', function (e) { if (y0 === null || !VP) return; var dy = e.clientY - y0; if (dy > 10 && Math.abs(dy) > Math.abs(e.clientX - x0)) { v.style.transition = 'none'; v.style.transform = 'translateY(' + dy + 'px) scale(' + Math.max(.7, 1 - dy / 1600) + ')'; el.style.background = 'rgba(0,0,0,' + Math.max(.3, 1 - dy / 500) + ')'; } });
+    var up = function (e) {
+      if (y0 === null || !VP) return;
+      var dy = e.clientY - y0, dx = e.clientX - x0, dt = Date.now() - t0; y0 = null;
+      v.style.transition = 'transform .2s'; el.style.background = '';
+      if (dy > 120 || (dy > 50 && dt < 250)) { v.style.transform = ''; vpClose(); return; }
+      v.style.transform = '';
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8 && dt < 300 && e.target === el) el.classList.toggle('bare');
+    };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', function () { y0 = null; v.style.transform = ''; el.style.background = ''; });
+  })();
+  /* service worker (needed for "Install app" on Android) */
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+  open();
+})();
+</script>
 </body>
 </html>
