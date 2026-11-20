@@ -1225,14 +1225,14 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       /* both pressed at the same moment: the caller's offer wins, the other phone offers again right after */
       if (glare && !polite) return;
       (glare ? pc.setLocalDescription({ type: 'rollback' }).then(function () { p.renegLater = true; }) : Promise.resolve())
-        .then(function () { return pc.setRemoteDescription({ type: 'offer', sdp: d.sdp }); })
+        .then(function () { return pc.setRemoteDescription({ type: 'offer', sdp: cvOpus(d.sdp) }); })
         .then(function () { return pc.createAnswer(); }).then(function (a) { return pc.setLocalDescription(a); })
         .then(function () {
           try { p.dc.send('sdp:' + JSON.stringify({ type: 'answer', sdp: pc.localDescription.sdp })); } catch (e) {}
           if (p.renegLater) { p.renegLater = false; setTimeout(function () { if (CV === c) cvRenego(p); }, 150); }
         }).catch(function () {});
     } else if (d.type === 'answer' && pc.signalingState === 'have-local-offer') {
-      pc.setRemoteDescription({ type: 'answer', sdp: d.sdp }).then(function () { if (p.renegLater) { p.renegLater = false; cvRenego(p); } }).catch(function () {});
+      pc.setRemoteDescription({ type: 'answer', sdp: cvOpus(d.sdp) }).then(function () { if (p.renegLater) { p.renegLater = false; cvRenego(p); } }).catch(function () {});
     }
   }
   function cvTracks(kind, en) { if (CV && CV.local) CV.local.getTracks().forEach(function (t) { if (t.kind === kind) t.enabled = en; }); }
@@ -1269,8 +1269,10 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (!CV) return;
     clearInterval(CV.tone); CV.tone = null; clearInterval(CV.vib); CV.vib = null; try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
     if (CV.natTone) { CV.natTone = false; natSend({ t: 'tone', kind: '' }); }
-    /* inside the app: let the ringing sound line go (an open "media" sound line can pull the call to the loudspeaker) */
-    if (NAT.on && CV.ac) { try { CV.ac.close(); } catch (e) {} CV.ac = null; }
+    /* inside the Android app: let the ringing sound line go (an open "media" sound line can pull the call to the
+       loudspeaker). 1.1.47: not on iPhone: closing it made the iPhone's call engine set up the sound again right when
+       the call connected (a short burst on the loudspeaker); it is closed when the call ends */
+    if (NAT.on && CV.ac && NAT.platform !== 'ios') { try { CV.ac.close(); } catch (e) {} CV.ac = null; }
   }
   function cvOpen(src, org, d) {
     try { if (VP) $('vpVid').pause(); } catch (e) {}
@@ -1445,7 +1447,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     p.pc.onconnectionstatechange = function () {
       if (CV !== c || c.peers[id] !== p) return;
       var s = p.pc.connectionState;
-      if (s === 'connected') { p.connected = true; cvLive(); cvPeerUi(); }
+      if (s === 'connected') { p.connected = true; cvVoiceFirst(p); cvLive(); cvPeerUi(); }
       else if (s === 'disconnected') { if (!c.group) cvStatus(ct('reconnecting')); p.connected = false; cvPeerUi(); }
       else if (s === 'failed') {
         if (!c.group) { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); }
@@ -1505,6 +1507,34 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     var t = $('cvt_' + id); if (t) t.remove();
     if (!quiet) cvPeerUi();
   }
+  /* 1.1.47: clearer voice on a weak line. The other phone's description tells this phone how to send its voice
+     (Opus): ask for the built-in repair of lost pieces (in-band FEC), no silence gaps (DTX off), mono, and a little
+     more quality (40 kbit/s instead of 32). Only the voice line (opus) is touched. */
+  function cvOpus(sdp) {
+    try {
+      var m = /a=rtpmap:(\d+) opus\/48000[^\r\n]*/i.exec(sdp); if (!m) return sdp;
+      var pt = m[1], re = new RegExp('a=fmtp:' + pt + ' ([^\r\n]*)');
+      var want = { useinbandfec: '1', usedtx: '0', stereo: '0', 'sprop-stereo': '0', maxaveragebitrate: '40000' };
+      var f = re.exec(sdp);
+      if (!f) return sdp.replace(m[0], m[0] + '\r\na=fmtp:' + pt + ' ' + Object.keys(want).map(function (k) { return k + '=' + want[k]; }).join(';'));
+      var have = {}, order = [];
+      f[1].split(';').forEach(function (kv) { var p = kv.split('='), k = String(p[0] || '').trim(); if (!k) return; if (!(k in have)) order.push(k); have[k] = String(p.slice(1).join('=')).trim(); });
+      Object.keys(want).forEach(function (k) { if (!(k in have)) order.push(k); have[k] = want[k]; });
+      return sdp.replace(f[0], 'a=fmtp:' + pt + ' ' + order.map(function (k) { return k + '=' + have[k]; }).join(';'));
+    } catch (e) { return sdp; }
+  }
+  /* 1.1.47: the voice goes first on a busy Wi-Fi (marked as voice, sent before other data) */
+  function cvVoiceFirst(p) {
+    try {
+      p.pc.getSenders().forEach(function (s) {
+        if (!s.track || s.track.kind !== 'audio' || !s.getParameters || !s.setParameters) return;
+        var prm = s.getParameters();
+        if (!prm.encodings || !prm.encodings.length) return;
+        prm.encodings.forEach(function (en) { en.priority = 'high'; en.networkPriority = 'high'; });
+        s.setParameters(prm).catch(function () {});
+      });
+    } catch (e) {}
+  }
   /* no trickle: wait until the phone has found its addresses, then send one description.
      It stops early once the useful addresses are there (a relay, or the public address when there is no relay) */
   function cvGather(pc, ice) {
@@ -1516,7 +1546,10 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       pc.addEventListener('icecandidate', function (e) {
         if (!e.candidate) return fin();
         var typ = e.candidate.type || (/ typ (\w+)/.exec(e.candidate.candidate || '') || [])[1];
-        if (typ === 'relay') { clearTimeout(early); early = setTimeout(fin, 250); }
+        /* 1.1.47: a relay over UDP is the one the voice needs (a relay over TCP / TLS gives crackles when packets get
+           lost): only that one ends the search early */
+        var rp = String(e.candidate.relayProtocol || (/ typ relay/.test(e.candidate.candidate || '') ? e.candidate.protocol || '' : '')).toLowerCase();
+        if (typ === 'relay' && (rp === 'udp' || !rp)) { clearTimeout(early); early = setTimeout(fin, 250); }
         else if (typ === 'srflx' && !turn && !early) early = setTimeout(fin, 350);
       });
       pc.addEventListener('icegatheringstatechange', function () { if (pc.iceGatheringState === 'complete') fin(); });
@@ -1536,7 +1569,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     var c = CV; if (!c) return;
     cvMedia().then(function () {
       var p = cvNewPeer(peer, name, ice, ini);
-      return p.pc.setRemoteDescription({ type: 'offer', sdp: String(offer || '') }).then(function () { return p.pc.createAnswer(); })
+      return p.pc.setRemoteDescription({ type: 'offer', sdp: cvOpus(String(offer || '')) }).then(function () { return p.pc.createAnswer(); })
         .then(function (a) { return p.pc.setLocalDescription(a); }).then(function () { return cvGather(p.pc, p.ice); })
         .then(function () { if (CV === c && c.peers[peer] === p) cvSend({ type: 'tem-call-sig', peer: peer, kind: 'answer', sdp: p.pc.localDescription.sdp }); });
     }).catch(function (e) { cvFail(c, e); });
@@ -1564,7 +1597,7 @@ var APP_URL = String(window.TRIP_APP_URL || '');
   function cvAnswer(sdp, peer) {
     var c = CV, p = c && c.peers[peer || 'p']; if (!p) return;
     c.toneDone = true; cvToneStop(); if (!c.group) cvStatus(ct('connecting'));
-    p.pc.setRemoteDescription({ type: 'answer', sdp: String(sdp || '') }).catch(function () { if (!c.group) { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); } else cvPeerGone(peer); });
+    p.pc.setRemoteDescription({ type: 'answer', sdp: cvOpus(String(sdp || '')) }).catch(function () { if (!c.group) { cvSend({ type: 'tem-call-fail', err: 'net' }); cvStop(ct('failed')); } else cvPeerGone(peer); });
   }
   function cvLive() {
     var c = CV; if (!c) return;
