@@ -554,7 +554,10 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     if (NAT.send) { NAT.on = true; document.documentElement.classList.add('native'); NAT.send({ t: 'hello' }); }
   })();
   function natSend(o) { if (NAT.on) try { NAT.send(o); } catch (e) {} }
-  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token, version: NAT.version, install: NAT.install, livePost: !!NAT.livePost, files: !!NAT.files, notif: NAT.notif || '', fsi: NAT.fsi, bat: NAT.bat, voip: NAT.voip || '', apns: NAT.apns || '' }, APPORIGIN); } catch (e) {} }
+  /* 1.1.48: photos picked in the iPhone app (by request id) */
+  var PICK = {};
+  function b64bytes(t) { var s = atob(t), b = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
+  function natToApp() { if (NAT.on && APPWIN && NAT.platform) try { APPWIN.postMessage({ type: 'tem-native', platform: NAT.platform, token: NAT.token, version: NAT.version, install: NAT.install, livePost: !!NAT.livePost, files: !!NAT.files, pick: !!NAT.pick, notif: NAT.notif || '', fsi: NAT.fsi, bat: NAT.bat, voip: NAT.voip || '', apns: NAT.apns || '' }, APPORIGIN); } catch (e) {} }
   /* 1.1.42: the strip under the phone's clock takes the colour of the app's top bar, and the Android / iPhone app is told
      whether the clock digits must be dark (light page) or white (dark page, call screen, start screen) */
   var THEME = { dark: false, bar: '#ffffff' }, BAR_SENT = '';
@@ -602,6 +605,8 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       if (d.tone === true) NAT.tone = true;
       if (d.livePost === true) NAT.livePost = true;
       if (d.files === true) NAT.files = true;
+      /* 1.1.48: the iPhone app can open the photo library at once */
+      if (d.pick === true) NAT.pick = true;
       if (typeof d.version === 'string') NAT.version = d.version.slice(0, 30);
       natToApp();
     } else if (d.t === 'go') {
@@ -609,6 +614,16 @@ var APP_URL = String(window.TRIP_APP_URL || '');
       goOnce(String(d.go || ''), String(d.msg || ''), 'n' + Date.now());
     }
     else if (d.t === 'bio') natBioRes(d);
+    /* 1.1.48: photos / videos chosen in the iPhone app's photo library, in pieces → files for the app */
+    else if (d.t === 'pickFile') { var pk = PICK[d.id]; if (pk) pk.files[Number(d.i) || 0] = { name: String(d.name || 'photo.jpg').slice(0, 120), mime: String(d.mime || '').slice(0, 80), parts: [] }; }
+    else if (d.t === 'pickPart') { var pk2 = PICK[d.id], pf = pk2 && pk2.files[Number(d.i) || 0]; if (pf) try { pf.parts.push(b64bytes(String(d.b64 || ''))); } catch (er) {} }
+    else if (d.t === 'pickDone') {
+      var pk3 = PICK[d.id]; delete PICK[d.id];
+      if (pk3) {
+        var out = pk3.files.filter(Boolean).map(function (f) { return new File(f.parts, f.name, { type: f.mime }); });
+        try { pk3.src.postMessage({ type: 'tem-pick-res', id: d.id, files: out }, pk3.org); } catch (er) {}
+      }
+    }
     /* 1.1.43: hung up on the iPhone's own call screen (CallKit) */
     else if (d.t === 'hangup') { if (CV) { cvBye(); cvSend({ type: 'tem-call-hangup' }); cvStop(ct('ended')); } }
     else if (d.t === 'mute') { if (CV && !!CV.muted !== !!d.on) { CV.muted = !!d.on; cvTracks('audio', !CV.muted); cvCtlAll('mute:' + (CV.muted ? 1 : 0)); cvDraw(); } }
@@ -681,6 +696,12 @@ var APP_URL = String(window.TRIP_APP_URL || '');
     }
     if (e.data.type === 'tem-native-settings' && /^(notif|fsi|bat)$/.test(String(e.data.what || ''))) natSend({ t: 'settings', what: String(e.data.what) });
     if (e.data.type === 'tem-native-hello') natSend({ t: 'hello' });
+    /* 1.1.48: Gallery in the iPhone app: its own picker opens the photo library at once */
+    if (e.data.type === 'tem-pick') {
+      var pid = String(e.data.id || '').slice(0, 40);
+      if (!NAT.on || !NAT.pick || !pid) { try { e.source.postMessage({ type: 'tem-pick-res', id: pid, files: [] }, e.origin); } catch (er) {} }
+      else { PICK[pid] = { src: e.source, org: e.origin, files: [] }; natSend({ t: 'pick', id: pid, limit: Math.max(1, Math.min(20, Number(e.data.limit) || 1)), video: !!e.data.video }); }
+    }
     if (e.data.type === 'tem-save') {
       var vsrc = e.source, vorg = e.origin;
       try { vsrc.postMessage({ type: 'tem-save-ack' }, vorg); } catch (er) {}
